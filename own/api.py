@@ -192,16 +192,18 @@ def create_app(data_dir, engine=None):
 
     @app.post('/api/gpu/connection')
     def connect_gpu(body: GpuConnectionBody):
-        with gpu_jobs.lock, store.lock:
-            if any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')):
-                raise Problem('Stop the active cloud job before changing its saved connection.', 409)
+        with gpu_jobs.lock:
+            with store.lock:
+                if any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')):
+                    raise Problem('Stop the active cloud job before changing its saved connection.', 409)
             return gpu.connect(body.token_id, body.token_secret)
 
     @app.post('/api/gpu/disconnect')
     def disconnect_gpu():
-        with gpu_jobs.lock, store.lock:
-            if any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')):
-                raise Problem('Stop the active cloud job before forgetting its connection.', 409)
+        with gpu_jobs.lock:
+            with store.lock:
+                if any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')):
+                    raise Problem('Stop the active cloud job before forgetting its connection.', 409)
             return gpu.disconnect()
 
     @app.get('/api/training/runtime')
@@ -250,6 +252,10 @@ def create_app(data_dir, engine=None):
     @app.post('/api/workspaces/{ws}/jobs/{job}/gpu/runs/{run_id}/cancel')
     def stop_gpu_job(ws: str, job: str, run_id: str):
         return gpu_jobs.cancel(ws, job, run_id)
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/gpu/runs/{run_id}/reconnect')
+    def reconnect_to_stop_gpu_job(ws: str, job: str, run_id: str, body: GpuConnectionBody):
+        return gpu_jobs.reconnect_and_stop(ws, job, run_id, token_id=body.token_id, token_secret=body.token_secret)
 
     @app.post('/api/workspaces/{ws}/jobs/{job}/gpu/runs/{run_id}/review')
     def review_gpu_job(ws: str, job: str, run_id: str, body: ReviewBody):

@@ -1,4 +1,24 @@
-# Step 3 setup verification — 2 November 2026
+# Step 4 GPU workflow verification — 2 November 2026
+
+The supervised workflow is implemented; the **first actual L4/Qwen3-4B run is still pending**. The founder requires free credits only, no out-of-pocket charges. No cloud image, GPU invocation or business-data upload was started. Remaining credits and the provider's net $0 Spend limit have not been confirmed.
+
+- **96 Python tests pass** with `python -m unittest discover -s tests -q`. Coverage includes strict per-run permissions, stale data, one active run, scope, immutable inputs, worker failures, secret boundaries, cancellation uncertainty/recovery, finite safetensors, exact topology, archive bounds, request/base/config/check binding, verified export and preservation of the existing local workflow.
+- The installed **Modal 1.6.3** constructs the real App/Function definition locally with one L4, US region, 300-second startup timeout, bounded execution, unique per-run name and no training retries. This creates no app or image remotely and is not a CUDA compatibility test.
+- A real offline small-model shared-core run performed **1 optimizer step**, changed **184,320 parameters**, saved/reloaded the adapter and compared the held-out request. Its actual result also passes the final bounded archive verifier, including the trusted Smol topology and exact request hash. This is CPU evidence, not Qwen/L4 evidence.
+- Controlled browser flow passes: four unchecked consent gates, measured-step protocol, unconfirmed stop, reconnect-to-stop form, human review, private download, late-response modal preservation, desktop and 390px layouts. Every mutation in this test is intercepted, so displayed GPU answers are explicit test fixtures. Browser screenshots under the task's `work/browser-qa/step4-*.png` are UI verification, not GPU-training proof.
+- The existing setup browser flow also passes after moving account details into a disclosure: mask/reveal, invalid token format with retained input, delayed connection response preserving a newer form, permission and allowance validation, and a real local fictional-data package download. Mobile document width380 vs viewport390; no JavaScript errors. No actual account replacement or cloud compute occurs in that flow.
+- JavaScript syntax passes for app.js, training.js, gpu.js and both GPU browser scripts. DESIGN.md lint returns zero errors and eight warnings (component minHeight vocabulary and unused component references). Premium strict static audit reports **13 delegated-button findings**, all `affordance.actionless-button`; it cannot resolve the shared data-action dispatcher. These have real handlers; runtime evidence is separate. The strict static audit does **not** pass, and there are zero unresolved ownership findings.
+- The already-connected provider workspace was verified with a **real read-only identity lookup** using credentials only in protected storage/process environment. Its name is saved as connection metadata and frozen before any training launch. Recovery replacement must match the recorded workspace; mismatched tokens preserve the old connection. This lookup starts no compute and does not verify credits/billing limits.
+
+Independent read-only review reported three issues, all reproduced with failing regression tests and fixed in one author verification pass:
+
+1. A queue/auth/local-definition failure before app creation could block all future runs forever. The worker now records whether creation was attempted; conclusive pre-launch failures/cancellations are terminal, while uncertain outcomes after an attempt remain blocked for provider recovery.
+2. A partial or wrongly shaped adapter could pass structural validation. Trusted metadata from the pinned base configuration now requires every expected q_proj/v_proj A/B tensor, layer and dimension. Qwen's topology is 36 layers, input2560, q-output4096, v-output1024. Acceptance fixtures use the complete model topology. A tiny one-layer forgery is rejected.
+3. Revoked credentials could not be replaced while recovering an interrupted job. A separate scoped reconnect-to-stop route validates a replacement token's provider workspace before saving it and immediately attempts termination. It cannot launch training. Wrong-scope tokens are rejected without overwriting the saved connection.
+
+No second independent review was performed after these fixes. The author ran the full 96-test suite, browser recovery regression and real tiny-result validation. Actual L4 execution, Qwen quality, provider net-limit enforcement, remaining credits, actual charges and in-app GPU hosting remain unverified. Earlier milestone evidence below is historical, not a description of current feature availability.
+
+## Historical Step 3 setup verification — 2 November 2026
 
 Scope explicitly chosen by the founder: **no cloud account yet; build setup first**.
 

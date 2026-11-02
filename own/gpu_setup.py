@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -92,7 +93,31 @@ class GpuSetup:
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
             return self.status()
 
-    def connect(self, token_id, token_secret):
+    def _workspace_name(self, credentials):
+        from .gpu_worker import provider_environment
+        try:
+            result = subprocess.run([str(runtime_python(self.root)), '-m', 'own.gpu_identity'],
+                cwd=self.source, env=provider_environment(self.root, credentials), capture_output=True, timeout=25,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            workspace_name = json.loads(result.stdout)['workspace_name'] if result.returncode == 0 else None
+            if not isinstance(workspace_name, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,99}', workspace_name):
+                raise ValueError('No verified workspace identity')
+            return workspace_name
+        except (OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired) as error:
+            raise Problem('The Modal workspace could not be verified. Check the connection and try again. No GPU training was started.', 503) from error
+
+    def workspace_identity(self):
+        with self.setup_lock:
+            credentials = self.vault.load()
+            if not credentials:
+                raise Problem('Connect Modal before training.', 409)
+            workspace_name = credentials.get('workspace_name')
+            if not isinstance(workspace_name, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,99}', workspace_name):
+                workspace_name = self._workspace_name(credentials)
+                self.vault.save(dict(credentials, workspace_name=workspace_name))
+            return workspace_name
+
+    def connect(self, token_id, token_secret, expected_workspace_name=None):
         with self.setup_lock:
             if not self.sdk_ready():
                 raise Problem('Set up GPU tools before connecting your account.')
@@ -109,7 +134,11 @@ class GpuSetup:
                 raise Problem('The connection check could not finish. Check your internet connection and retry. No training was started.', 503) from error
             if result.returncode:
                 raise Problem('Modal could not verify this token pair. Check the ID, secret and internet connection. No training was started.', 400)
-            self.vault.save({'token_id': token_id, 'token_secret': token_secret})
+            credentials = {'token_id': token_id, 'token_secret': token_secret}
+            workspace_name = self._workspace_name(credentials)
+            if expected_workspace_name is not None and workspace_name != expected_workspace_name:
+                raise Problem('This connection belongs to a different Modal workspace. Use a replacement token from the workspace that owns this cloud job. The saved connection was kept.', 409)
+            self.vault.save(dict(credentials, workspace_name=workspace_name))
             return self.status()
 
     def disconnect(self):

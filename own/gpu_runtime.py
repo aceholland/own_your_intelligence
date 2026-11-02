@@ -64,6 +64,7 @@ class GpuJobManager:
                 raise Problem('Set up the GPU tools and connect your Modal account first.', 409)
             run = self.repo.begin(ws, job, **approvals)
             try:
+                run = self.repo.update(ws, job, run['id'], provider_workspace_name=self.setup.workspace_identity())
                 self._launch(run)
             except Exception as error:
                 self.repo.update(ws, job, run['id'], status='failed', phase='GPU job could not start',
@@ -71,6 +72,16 @@ class GpuJobManager:
                                  provider_stop_confirmed=True)
                 raise Problem('The GPU process could not start. No cloud work was launched.', 503) from error
             return self.repo.summary(run)
+
+    def reconnect_and_stop(self, ws, job, run_id, token_id, token_secret):
+        with self.lock:
+            run = self.repo.get(ws, job, run_id)
+            if self.current or run['status'] != 'interrupted':
+                raise Problem('A recovery connection is only available for a cloud job whose stop is unconfirmed.', 409)
+            if not run.get('provider_workspace_name'):
+                raise Problem('This early job has no verified Modal workspace identity. Stop it directly in Modal; a replacement connection cannot be matched automatically.', 409)
+            self.setup.connect(token_id, token_secret, expected_workspace_name=run['provider_workspace_name'])
+            return self.cancel(ws, job, run_id)
 
     def _monitor(self, process, run):
         folder = self.folder(run)
@@ -118,7 +129,7 @@ class GpuJobManager:
             return self.repo.update(ws, job, run_id, **common, status='interrupted', phase='Cloud stop unconfirmed', error=UNKNOWN)
         if stopped:
             return self.repo.update(ws, job, run_id, **common, status='cancelled', phase='Cloud job stopped',
-                                    error='The provider acknowledged the stop. Your examples and previous model are safe.')
+                                    error='The job is stopped. Your examples and previous model are safe.')
         if exit_code != 0 or progress.get('status') != 'returned':
             return self.repo.update(ws, job, run_id, **common, status='failed', phase='GPU job did not finish', error=FAILED)
         try:

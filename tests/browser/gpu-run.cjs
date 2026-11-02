@@ -27,6 +27,7 @@ const output=process.env.OWN_TEST_OUTPUT||process.cwd();
         runs.unshift(run);return fulfill(run);
       }
       if(url.pathname.endsWith('/review')){const body=request.postDataJSON();runs[0].results[0].review=body.review;return fulfill(runs[0]);}
+      if(url.pathname.endsWith('/reconnect')){runs[0].status='stopping';runs[0].phase='Checking and stopping the cloud job';return fulfill(runs[0]);}
       if(url.pathname.endsWith('/cancel')){runs[0].status='stopping';runs[0].phase='Asking Modal to stop the cloud job';return fulfill(runs[0]);}
       throw Error('Unexpected mutation blocked: '+url.pathname);
     }
@@ -48,9 +49,15 @@ const output=process.env.OWN_TEST_OUTPUT||process.cwd();
     await page.getByText('5 of 18 steps',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Stop cloud job',exact:true}).click();
     await page.getByRole('button',{name:'Stopping…',exact:true}).waitFor();
-    runs[0]={...runs[0],status:'interrupted',phase:'Cloud stop unconfirmed',error:'Controlled connection loss. Stop is unconfirmed.'};
+    runs[0]={...runs[0],status:'interrupted',phase:'Cloud stop unconfirmed',error:'Controlled connection loss. Stop is unconfirmed.',provider_workspace_name:'fictional-workspace'};
     await page.getByText('Controlled connection loss. Stop is unconfirmed.',{exact:true}).waitFor();
     assert(await page.getByRole('button',{name:'Stop cloud job',exact:true}).isEnabled());
+    await page.getByRole('button',{name:'Reconnect to stop',exact:true}).click();
+    await page.getByLabel('Token ID',{exact:true}).fill('ak-controlled-fixture');
+    await page.getByLabel('Token secret',{exact:true}).fill('as-controlled-fixture');
+    await page.getByRole('button',{name:'Connect and stop cloud job',exact:true}).click();
+    await page.locator('#dialog').waitFor({state:'hidden'});
+    await page.getByRole('button',{name:'Stopping…',exact:true}).waitFor();
     runs[0]={...runs[0],status:'complete',phase:'Ready for your review',step:18,download_available:true,changed_parameters:184320,first_loss:2,last_loss:1,
       results:[{check_id:'held-out',input:'When will my order arrive?',expected:'Five working days.',before:'I am not sure.',after:'Your order arrives in five working days.',before_error:null,error:null,review:'pending'}]};
     await page.reload();

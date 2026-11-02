@@ -40,6 +40,14 @@ class GpuRuntimeTests(unittest.TestCase):
             launch.assert_not_called()
         self.assertEqual(self.manager.repo.list(self.ws,self.job),[])
 
+    def test_real_start_path_records_verified_provider_scope_before_launch(self):
+        self.setup.vault.save({'token_id':'ak-test-start','token_secret':'as-test-start'})
+        with patch.object(self.setup,'sdk_ready',return_value=True), patch.object(self.setup,'_workspace_name',return_value='fictional-workspace'), patch.object(self.manager,'_launch') as launch:
+            result=self.manager.start(self.ws,self.job,**self.args)
+        self.assertEqual(result['provider_workspace_name'],'fictional-workspace')
+        launch.assert_called_once()
+        self.assertNotIn('as-test-start',str(result))
+
     def test_only_verified_result_gets_imported_and_expected_answers_are_joined_locally(self):
         run=self.run_record()
         folder=self.manager.folder(run)
@@ -83,6 +91,15 @@ class GpuRuntimeTests(unittest.TestCase):
         result=self.manager.reconcile(run,0)
         self.assertEqual(result['status'],'cancelled')
         self.assertFalse(result['download_available'])
+
+    def test_expired_connection_can_only_be_replaced_for_same_workspace_recovery(self):
+        run=self.run_record()
+        self.manager.repo.update(self.ws,self.job,run['id'],status='interrupted',provider_workspace_name='ac-'+'a'*22)
+        with patch.object(self.setup,'connect',return_value={'connected':True}) as connect, patch.object(self.manager,'_launch') as launch:
+            result=self.manager.reconnect_and_stop(self.ws,self.job,run['id'],'ak-replacement','as-replacement')
+        connect.assert_called_once_with('ak-replacement','as-replacement',expected_workspace_name='ac-'+'a'*22)
+        self.assertEqual(result['status'],'stopping')
+        self.assertEqual(launch.call_args.args[1],'stop')
 
 
 if __name__=='__main__':unittest.main()

@@ -46,7 +46,7 @@ class GpuWorkerTests(unittest.TestCase):
         launcher = SimpleNamespace(build_app=lambda timeout: (app, Function()))
         payload = {'quote': {'timeout_seconds': 300}}
         events = []
-        result = run_provider(payload, launcher, sdk, lambda: cancel, lambda **data: events.append(data), poll_seconds=.001)
+        result = run_provider(payload, launcher, sdk, lambda: cancel and bool(spawned), lambda **data: events.append(data), poll_seconds=.001)
         return result, events, app, spawned
 
     def test_success_requires_real_output_and_provider_stop_ack(self):
@@ -112,6 +112,45 @@ class GpuWorkerTests(unittest.TestCase):
             self.assertTrue(stop_by_id('ap-matching'))
         with patch('own.gpu_worker.subprocess.run',side_effect=ConnectionError('unavailable')):
             self.assertFalse(stop_by_id('ap-matching'))
+
+    def test_queue_failure_before_app_creation_is_terminal_and_cancel_before_start_uses_no_sdk(self):
+        app=FakeApp()
+        app.app_id=None
+        app.run=lambda: self.fail('App creation must not be attempted')
+        @contextlib.contextmanager
+        def broken_queue():
+            raise ConnectionError('Provider unavailable before app creation')
+            yield
+        sdk=SimpleNamespace(Queue=SimpleNamespace(ephemeral=broken_queue))
+        launcher=SimpleNamespace(build_app=lambda timeout:(app,None))
+        result=run_provider({'quote':{'timeout_seconds':300}},launcher,sdk,lambda:False,lambda **event:None,poll_seconds=.001)
+        self.assertEqual(result['status'],'failed')
+        self.assertTrue(result['provider_stop_confirmed'])
+        launcher.build_app=lambda timeout:self.fail('Cancellation before launch must not construct or invoke anything')
+        result=run_provider({'quote':{'timeout_seconds':300}},launcher,sdk,lambda:True,lambda **event:None)
+        self.assertEqual(result['status'],'cancelled')
+        self.assertTrue(result['provider_stop_confirmed'])
+
+    def test_identity_helper_uses_public_workspace_name_not_an_unavailable_object_id(self):
+        import io
+        from own.gpu_identity import main
+        workspace=SimpleNamespace(name='fictional-workspace')
+        sdk=SimpleNamespace(Workspace=SimpleNamespace(from_context=lambda:SimpleNamespace(hydrate=lambda:workspace)))
+        output=io.StringIO()
+        with patch.dict('sys.modules',{'modal':sdk}), contextlib.redirect_stdout(output):
+            self.assertEqual(main(),0)
+        self.assertEqual(json.loads(output.getvalue()),{'workspace_name':'fictional-workspace'})
+
+    def test_local_launcher_failure_before_sdk_invocation_does_not_leave_an_orphan(self):
+        from own import gpu_worker
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp)
+            (folder/'train_on_gpu.py').write_text('def validate_request(*args):\n    raise ValueError("local invalid request")\n')
+            with patch.object(gpu_worker,'load_task',return_value={'payload':{}}), patch('sys.argv',['worker','train',tmp]):
+                gpu_worker.main()
+            result=json.loads((folder/'progress.json').read_text())
+            self.assertEqual(result['status'],'failed')
+            self.assertTrue(result['provider_stop_confirmed'])
 
 
 if __name__ == '__main__': unittest.main()

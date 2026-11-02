@@ -85,7 +85,7 @@ class GpuSetupTests(unittest.TestCase):
 
     def test_read_only_connection_does_not_deploy_or_return_credentials(self):
         pair = {'token_id':'ak-fictional-test-id', 'token_secret':'as-fictional-test-secret'}
-        with patch.object(self.gpu, 'sdk_ready', return_value=True), patch('own.gpu_setup.subprocess.run', return_value=SimpleNamespace(returncode=0)) as run:
+        with patch.object(self.gpu, 'sdk_ready', return_value=True), patch.object(self.gpu,'_workspace_name',return_value='ac-'+'a'*22), patch('own.gpu_setup.subprocess.run', return_value=SimpleNamespace(returncode=0)) as run:
             response = self.gpu.connect(**pair)
         command = run.call_args.args[0]
         self.assertEqual(command[-4:], ['app','list','--json','--limit=1'])
@@ -103,6 +103,19 @@ class GpuSetupTests(unittest.TestCase):
                 self.gpu.connect('ak-another-test-id','as-another-test-secret')
         self.assertNotIn('as-another', str(error.exception))
         self.assertEqual(self.gpu.vault.load(), pair)
+
+    def test_recovery_connection_must_match_the_original_provider_workspace(self):
+        old={'token_id':'ak-old-connection','token_secret':'as-old-connection','workspace_name':'ac-'+'a'*22}
+        self.gpu.vault.save(old)
+        with patch.object(self.gpu,'sdk_ready',return_value=True), patch('own.gpu_setup.subprocess.run',return_value=SimpleNamespace(returncode=0)):
+            with patch.object(self.gpu,'_workspace_name',return_value='ac-'+'b'*22):
+                with self.assertRaises(Problem):
+                    self.gpu.connect('ak-new-connection','as-new-connection',expected_workspace_name=old['workspace_name'])
+            self.assertEqual(self.gpu.vault.load(),old)
+            with patch.object(self.gpu,'_workspace_name',return_value=old['workspace_name']):
+                self.gpu.connect('ak-new-connection','as-new-connection',expected_workspace_name=old['workspace_name'])
+        self.assertEqual(self.gpu.vault.load()['workspace_name'],old['workspace_name'])
+        self.assertEqual(self.gpu.vault.load()['token_id'],'ak-new-connection')
 
     @unittest.skipUnless(os.name == 'nt', 'Windows user-scoped protection')
     def test_dpapi_survives_restart_without_plaintext_secrets(self):

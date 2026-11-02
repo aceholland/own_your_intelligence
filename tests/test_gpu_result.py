@@ -12,18 +12,20 @@ from own.training_data import digest
 from own.gpu_result import validate_result
 
 
-def fixture(manifest_changes=None,extra=None,tensor_value=.125,payload=None):
+def fixture(manifest_changes=None,extra=None,tensor_value=.125,payload=None,minimal=False):
     payload=payload or {'base':GPU_BASE,'config':GPU_CONFIG,'dataset_hash':'frozen-dataset','job':{'goal':'Reply','instructions':'Be concise'},
              'training_rows':[{'messages':[]} for _ in range(3)],'checks':[{'id':'check1','input':'New request'}]}
     config={'peft_type':'LORA','task_type':'CAUSAL_LM','base_model_name_or_path':GPU_BASE['id'],'revision':GPU_BASE['revision'],
             'r':GPU_CONFIG['rank'],'lora_alpha':GPU_CONFIG['alpha'],'target_modules':GPU_CONFIG['target_modules'],'bias':'none'}
     header={};offset=0
-    for module in ('q_proj','v_proj'):
-        for letter,shape in (('A',[8,1]),('B',[1,8])):
-            header[f'base_model.model.model.layers.0.self_attn.{module}.lora_{letter}.weight']={'dtype':'F32','shape':shape,'data_offsets':[offset,offset+32]};offset+=32
+    for layer in range(1 if minimal else 36):
+        for module,width in (('q_proj',4096),('v_proj',1024)):
+            for letter,shape in (('A',[8,1 if minimal else 2560]),('B',[1 if minimal else width,8])):
+                length=math.prod(shape)*4
+                header[f'base_model.model.model.layers.{layer}.self_attn.{module}.lora_{letter}.weight']={'dtype':'F32','shape':shape,'data_offsets':[offset,offset+length]};offset+=length
     encoded=json.dumps(header).encode()
     encoded+=b' '*((-len(encoded))%8)
-    weights=struct.pack('<Q',len(encoded))+encoded+struct.pack('<32f',*[tensor_value]*32)
+    weights=struct.pack('<Q',len(encoded))+encoded+struct.pack('<f',tensor_value)*(offset//4)
     files={'adapter_model.safetensors':weights,'adapter_config.json':json.dumps(config).encode()}
     manifest={'format':'own-gpu-result-v1','training_performed':True,'base_weights_included':False,'base':GPU_BASE,'config':GPU_CONFIG,
         'job':payload['job'],'dataset_hash':payload['dataset_hash'],'request_hash':digest(payload),'steps':len(payload['training_rows'])*GPU_CONFIG['epochs'],'changed_parameters':16,
@@ -83,6 +85,10 @@ class GpuResultTests(unittest.TestCase):
             with zipfile.ZipFile(output,'w') as archive:
                 for name,value in files.items():archive.writestr(name,value)
             with self.assertRaises(Problem):validate_result(output.getvalue(),payload)
+
+    def test_incomplete_or_wrong_dimensions_cannot_pretend_to_be_the_pinned_model(self):
+        data,payload=fixture(minimal=True)
+        with self.assertRaises(Problem):validate_result(data,payload)
 
 
 if __name__=='__main__':unittest.main()

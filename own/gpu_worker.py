@@ -46,10 +46,16 @@ def load_task(folder):
 
 def run_provider(payload, launcher, modal, cancel_requested, publish, poll_seconds=.25, run_name=None):
     """Keep cancellation responsive even while the SDK is preparing its image."""
-    app, function = launcher.build_app(payload['quote']['timeout_seconds'], **({'run_name': run_name} if run_name else {}))
+    terminal = dict(app_id=None, call_id=None, provider_stop_confirmed=True)
+    if cancel_requested():
+        return dict(terminal, status='cancelled', phase='Stopped before cloud training started', error=None)
+    try:
+        app, function = launcher.build_app(payload['quote']['timeout_seconds'], **({'run_name': run_name} if run_name else {}))
+    except Exception:
+        return dict(terminal, status='failed', phase='GPU setup could not start', error='The local GPU definition could not be prepared. No cloud job was started.')
     stop = threading.Event()
     done = threading.Event()
-    shared = {'app_id': None, 'call_id': None, 'provider_stop_confirmed': False}
+    shared = {'app_id': None, 'call_id': None, 'provider_stop_confirmed': False, 'app_attempted': False}
     lock = threading.Lock()
     def update(**fields):
         with lock: shared.update(fields)
@@ -60,6 +66,7 @@ def run_provider(payload, launcher, modal, cancel_requested, publish, poll_secon
         try:
             with modal.Queue.ephemeral() as queue:
                 if stop.is_set(): return
+                update(app_attempted=True)
                 with app.run():
                     update(app_id=app.app_id)
                     try:
@@ -128,10 +135,10 @@ def run_provider(payload, launcher, modal, cancel_requested, publish, poll_secon
             # No app ID yet: stay in Stopping until creation resolves, never allow a later unnoticed spawn.
         if done.wait(poll_seconds): break
     with lock: current = dict(shared)
-    acknowledged = current['provider_stop_confirmed']
+    acknowledged = current['provider_stop_confirmed'] or not current['app_attempted']
     status = 'returned' if current.get('data') and acknowledged and not current.get('failed') else 'failed' if acknowledged else 'interrupted'
     result = dict(status=status, phase='Verifying the trained model' if status == 'returned' else 'GPU job did not finish',
-        error=None if status == 'returned' else FAILED if acknowledged else UNKNOWN,
+        error=None if status == 'returned' else 'The connection failed before a GPU app was created. No cloud training started. Check the connection and retry.' if not current['app_attempted'] else FAILED if acknowledged else UNKNOWN,
         app_id=current['app_id'], call_id=current['call_id'], provider_stop_confirmed=acknowledged)
     if status == 'returned': result['data'] = current['data']
     return result
@@ -178,8 +185,10 @@ def main():
         write_json(progress, current)
     current = {'status': 'starting', 'phase': 'Preparing the cloud environment', 'app_id': None, 'call_id': None,
                'provider_stop_confirmed': False}
+    provider_attempted = False
     try:
         if sys.argv[1] == 'stop':
+            provider_attempted = True  # This mode is recovering an earlier, possibly running app.
             task = json.loads((folder / 'recovery.json').read_text(encoding='utf-8'))
             app_id = task.get('app_id')
             acknowledged, app_id = recover_stop(app_id, task.get('provider_app_name'))
@@ -196,6 +205,7 @@ def main():
         publish()
         def cancel_requested():
             return (folder / 'cancel').exists() or not (folder / 'heartbeat').exists() or time.time() - (folder / 'heartbeat').stat().st_mtime > 30
+        provider_attempted = True
         result = run_provider(task['payload'], launcher, modal, cancel_requested, publish, run_name=task.get('provider_app_name'))
         data = result.pop('data', None)
         if data is not None:
@@ -206,7 +216,11 @@ def main():
     except Problem:
         publish(status='failed', phase='GPU job could not start', error='The local request or permissions changed. Prepare a new GPU training.', provider_stop_confirmed=True)
     except Exception:
-        publish(status='interrupted', phase='Cloud job needs attention', error=UNKNOWN)
+        if provider_attempted:
+            publish(status='interrupted', phase='Cloud job needs attention', error=UNKNOWN)
+        else:
+            publish(status='failed', phase='GPU job could not start', provider_stop_confirmed=True,
+                    error='The local GPU request or connection tools could not load. No cloud job was started. Check setup and retry.')
 
 
 if __name__ == '__main__': main()

@@ -24,6 +24,6 @@ Files: own/api.py, web/gpu.js, web/app.js, tests/test_gpu_api.py, tests/browser/
 
 ### 4. Independent review and first-run handoff
 Files: README.md, NEXT_STEPS.md, VERIFICATION.md, DESIGN.md, UX-CONTRACT.md.
-- [ ] Obtain read-only review; reproduce/fix important findings and run final checks.
-- [ ] If owner-confirmed billing conditions are available, run the exact fictional test and validate its real saved result/reload; otherwise leave the actual GPU test pending without starting compute.
-- [ ] Record concrete evidence/limits, leave app running and commit.
+- [x] Obtain read-only review; reproduce/fix the three findings and run final checks. Exact trusted tensor topology, terminal pre-launch failures and scoped recovery credentials are covered.
+- [x] Owner-confirmed billing conditions are unavailable: leave the actual GPU test pending and start no compute. Read-only workspace authentication was verified.
+- [x] Record concrete evidence/limits, retain the current branch locally and leave the app running. The first actual L4 test and in-app GPU hosting remain explicitly pending.

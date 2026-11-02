@@ -1,6 +1,7 @@
 import io
 import json
 import tempfile
+import threading
 import unittest
 import zipfile
 from pathlib import Path
@@ -85,6 +86,34 @@ class GpuApiTests(unittest.TestCase):
             response=self.client.post(self.route+'/gpu/runs',json=self.run_body(),headers=self.headers)
         self.assertEqual(response.status_code,202)
         start.assert_called_once_with(self.ws,self.job,**self.run_body())
+
+    def test_scoped_recovery_connection_reaches_stop_only_for_interrupted_jobs(self):
+        manager=self.app.state.gpu_jobs
+        run=manager.repo.begin(self.ws,self.job,**self.run_body())
+        path=self.route+'/gpu/runs/'+run['id']+'/reconnect'
+        pair={'token_id':'ak-replacement','token_secret':'as-replacement'}
+        self.assertEqual(self.client.post(path,json=pair).status_code,403)
+        self.assertEqual(self.client.post(path,json=pair,headers=self.headers).status_code,409)
+        manager.repo.update(self.ws,self.job,run['id'],status='interrupted',provider_workspace_name='original-workspace')
+        with patch.object(manager,'reconnect_and_stop',return_value={'status':'stopping'}) as reconnect:
+            response=self.client.post(path,json=pair,headers=self.headers)
+        self.assertEqual(response.status_code,200)
+        reconnect.assert_called_once_with(self.ws,self.job,run['id'],**pair)
+        manager.repo.update(self.ws,self.job,run['id'],status='failed')
+
+    def test_slow_provider_connection_does_not_block_local_store_or_training_heartbeat(self):
+        available=[]
+        def connect(*args):
+            def another_local_operation():
+                acquired=self.app.state.store.lock.acquire(timeout=.2)
+                available.append(acquired)
+                if acquired:self.app.state.store.lock.release()
+            thread=threading.Thread(target=another_local_operation)
+            thread.start();thread.join(timeout=1)
+            return {'connected':True}
+        with patch.object(self.app.state.gpu,'connect',side_effect=connect):
+            self.post('/api/gpu/connection',{'token_id':'ak-fictional','token_secret':'as-fictional'})
+        self.assertEqual(available,[True])
 
     def test_preparation_and_download_need_no_account_and_do_not_run_compute(self):
         plan=self.client.get(self.route+'/gpu/plan').json()

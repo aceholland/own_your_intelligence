@@ -11,6 +11,7 @@ import zlib
 
 from .store import Problem
 from .training_data import digest
+from .model_topology import lora_shapes
 
 MAX_BYTES = 64 * 1024 * 1024
 ARTIFACTS = frozenset(('adapter_config.json', 'adapter_model.safetensors', 'tokenizer.json',
@@ -29,7 +30,7 @@ def _json(data):
     return json.loads(data, object_pairs_hook=unique, parse_constant=lambda _: (_ for _ in ()).throw(ValueError('Nonfinite JSON')))
 
 
-def _weights(data, config):
+def _weights(data, config, base):
     """Check safetensors layout, LoRA pairs and finite numeric values without torch/pickle."""
     if len(data) < 9:
         raise ValueError('Missing weights')
@@ -39,6 +40,9 @@ def _weights(data, config):
     header = _json(data[8:8 + size])
     if not isinstance(header, dict):
         raise ValueError('Invalid weight header structure')
+    expected_shapes = lora_shapes(base, config['rank'])
+    if set(header) - {'__metadata__'} != expected_shapes.keys():
+        raise ValueError('Missing or unexpected model layers/modules')
     values = memoryview(data)[8 + size:]
     offset = count = 0
     nonzero = False
@@ -56,6 +60,8 @@ def _weights(data, config):
         shape, dtype, bounds = item['shape'], item['dtype'], item['data_offsets']
         if not isinstance(shape, list) or len(shape) != 2 or any(type(n) is not int or not 0 < n <= 65536 for n in shape):
             raise ValueError('Invalid tensor shape')
+        if shape != expected_shapes[name]:
+            raise ValueError('Adapter dimensions do not match the pinned model')
         if shape[0 if match[3] == 'A' else 1] != config['rank'] or dtype not in ('F32', 'F16', 'BF16'):
             raise ValueError('Unexpected adapter dimensions or precision')
         width = 4 if dtype == 'F32' else 2
@@ -126,7 +132,7 @@ def validate_result(data, payload):
             raise ValueError('Different adapter configuration')
         if any(adapter.get(key) for key in ('modules_to_save', 'rank_pattern', 'alpha_pattern', 'use_dora', 'use_rslora')):
             raise ValueError('Unsupported adapter configuration')
-        if changed > _weights(files['adapter_model.safetensors'], payload['config']):
+        if changed > _weights(files['adapter_model.safetensors'], payload['config'], payload['base']):
             raise ValueError('Invalid changed parameter count')
         checks = {c['id']: c['input'] for c in payload['checks']}
         results = manifest['results']

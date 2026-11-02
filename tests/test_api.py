@@ -75,11 +75,12 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['title'], 'notes.md')
 
-    def test_training_route_never_pretends_to_train(self):
+    def test_training_requires_an_explicit_dataset_and_permission(self):
         response = self.client.post(f'{self.route}/train', json={}, headers=self.headers)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 400)
         bootstrap = self.client.get('/api/bootstrap').json()
-        self.assertFalse(bootstrap['capabilities']['weight_training'])
+        self.assertTrue(bootstrap['capabilities']['weight_training'])
+        self.assertFalse(bootstrap['capabilities']['cloud_training'])
 
     def test_malformed_request_reports_actionable_error(self):
         response = self.client.post('/api/workspaces', json={'name': ''}, headers=self.headers)

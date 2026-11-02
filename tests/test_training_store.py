@@ -81,6 +81,17 @@ class TrainingStoreTests(unittest.TestCase):
         with self.assertRaises(Problem):
             self.repo.review(self.ws, self.job, run['id'], self.check['id'], 'pass')
 
+    def test_failed_baseline_is_an_observed_outcome_and_candidate_still_requires_review(self):
+        run = self.begin()
+        self.repo.update(self.ws, self.job, run['id'], status='complete', results=[dict(
+            check_id=self.check['id'], before='', before_error='No complete baseline answer',
+            after='A complete trained answer', review='pending', error=None)])
+        with self.assertRaises(Problem):
+            self.repo.select(self.ws, self.job, run['id'])
+        self.repo.review(self.ws, self.job, run['id'], self.check['id'], 'pass')
+        self.repo.select(self.ws, self.job, run['id'])
+        self.assertEqual(self.store.job(self.ws, self.job)['model'], 'own:' + run['id'])
+
     def test_too_little_data_has_clear_preparation_blockers(self):
         job = self.store.create_job(self.ws, 'New', 'New job')['id']
         plan = self.repo.prepare(self.ws, job)

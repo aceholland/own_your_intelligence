@@ -314,10 +314,12 @@ class Store:
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, 'w', zipfile.ZIP_DEFLATED) as archive:
             archive.writestr('manifest.json', json.dumps({'format': 'own-workspace-v1', 'model_weights_included': False,
-                'training_performed': False, 'contains_business_data': True,
-                'inference_provider': 'Ollama', 'next_step': 'Model weight training and a standalone runner are not included.'}, indent=2))
+                'training_performed': any(t['status'] == 'complete' for t in self._list('training', ws)),
+                'trained_adapters_included': False, 'contains_business_data': True,
+                'inference_provider': 'Ollama or local PEFT',
+                'next_step': 'Download each trained adapter and its standalone runner separately from Train it.'}, indent=2))
             archive.writestr('workspace.json', json.dumps(dict(workspace, jobs=jobs), ensure_ascii=False, indent=2))
-            archive.writestr('README.txt', 'Own workspace export\n\nContains business documents, teaching examples, separate check examples, recent answers, evaluation history and approved configuration snapshots. Treat this archive as private business data.\n\ntraining/*.jsonl includes teaching examples only; checks are held out. No model weights or trained adapters are included. You need the named Ollama base model, subject to its license, to run inference. Prompt/example customization is not model weight training.\n')
+            archive.writestr('README.txt', 'Own workspace export\n\nContains business documents, teaching examples, separate check examples, recent answers, evaluation history and approved configuration snapshots. Treat this archive as private business data.\n\ntraining/*.jsonl includes teaching examples only; checks are held out. This data/configuration archive contains no model weights. Download each trained adapter and its standalone runner separately from Train it. Ollama versions need the named base model under its license. Prompt/example customization alone is not model weight training.\n')
             for job in jobs:
                 archive.writestr(f"training/{job['id']}.jsonl", self.training_jsonl(ws, job['id']))
         return stream.getvalue()

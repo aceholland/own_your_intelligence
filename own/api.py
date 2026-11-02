@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .engine import OllamaEngine
 from .retrieval import build_messages
 from .store import Problem, Store, text
+from .training_runtime import TrainingManager
 
 
 class Body(BaseModel):
@@ -45,6 +46,17 @@ class ExampleBody(Body):
     output: str
 
 
+class ExampleEditBody(Body):
+    input: str
+    output: str
+    expected: dict
+
+
+class TrainBody(Body):
+    dataset_hash: str
+    permission: bool
+
+
 class TryBody(Body):
     input: str
     mode: str = 'draft'
@@ -69,15 +81,18 @@ def create_app(data_dir, engine=None):
     engine = engine or OllamaEngine()
     token = secrets.token_urlsafe(32)
     inference_lock = threading.Lock()
+    training = TrainingManager(store, data_dir, inference_lock)
     web = Path(__file__).resolve().parent.parent / 'web'
 
     @asynccontextmanager
     async def lifespan(app):
         yield
+        training.close()
         store.close()
 
     app = FastAPI(title='Own local workbench', docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.store = store
+    app.state.training = training
 
     @app.middleware('http')
     async def local_boundary(request: Request, call_next):
@@ -113,10 +128,16 @@ def create_app(data_dir, engine=None):
     async def validation_handler(request, error):
         return JSONResponse({'error': 'Some information is missing or has the wrong format. Check the form and try again.'}, status_code=400)
 
-    def generate(snapshot, user_input):
+    def generate(ws, job, snapshot, user_input):
         model = snapshot['job']['model']
         if not model:
             raise Problem('Choose a local model in Teach it before trying this job.')
+        start = time.monotonic()
+        if model.startswith('own:'):
+            # The learned adapter supplies teaching; do not also paste teaching answers into its input.
+            messages, references = build_messages(dict(snapshot, examples=[]), user_input)
+            output = training.chat(ws, job, model[4:], messages)
+            return output, references, round((time.monotonic() - start) * 1000)
         available = engine.status()
         if not available['connected'] or model not in [m['name'] for m in available['models']]:
             raise Problem('The selected local model is not ready. Open AI connection and check Ollama.', 503)
@@ -128,7 +149,16 @@ def create_app(data_dir, engine=None):
     @app.get('/api/bootstrap')
     def bootstrap():
         return {'csrf_token': token, 'workspaces': store.list_workspaces(),
-                'capabilities': {'local_inference': True, 'weight_training': False, 'model_weights_export': False, 'multi_user_auth': False}}
+                'capabilities': {'local_inference': True, 'weight_training': True, 'model_weights_export': True,
+                                 'base_weights_export': False, 'cloud_training': False, 'multi_user_auth': False}}
+
+    @app.get('/api/training/runtime')
+    def training_status():
+        return training.status()
+
+    @app.post('/api/training/setup')
+    def setup_training():
+        return training.setup()
 
     @app.get('/api/engine')
     def engine_status():
@@ -148,10 +178,16 @@ def create_app(data_dir, engine=None):
 
     @app.get('/api/workspaces/{ws}/jobs/{job}')
     def get_job(ws: str, job: str):
-        return store.job(ws, job)
+        return dict(store.job(ws, job), trainings=training.repo.list(ws, job), training_plan=training.repo.prepare(ws, job))
 
     @app.patch('/api/workspaces/{ws}/jobs/{job}')
     def edit_job(ws: str, job: str, body: EditBody):
+        model = body.changes.get('model')
+        if isinstance(model, str) and model.startswith('own:'):
+            training.repo.get(ws, job, model[4:])
+            if store.job(ws, job)['model'] != model:
+                raise Problem('Use the Train it comparison to review and select a trained model first.')
+            training.checked_record(ws, job, model[4:])
         return store.update_job(ws, job, body.changes, body.revision)
 
     @app.post('/api/workspaces/{ws}/sources')
@@ -177,6 +213,43 @@ def create_app(data_dir, engine=None):
     def add_example(ws: str, job: str, body: ExampleBody):
         return store.add_example(ws, job, body.kind, body.input, body.output)
 
+    @app.patch('/api/workspaces/{ws}/jobs/{job}/examples/{example}')
+    def edit_example(ws: str, job: str, example: str, body: ExampleEditBody):
+        return store.edit_example(ws, job, example, body.input, body.output, body.expected)
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/training-plan')
+    def training_plan(ws: str, job: str):
+        return training.repo.prepare(ws, job)
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/train', status_code=202)
+    def train_job(ws: str, job: str, body: TrainBody):
+        return training.start(ws, job, body.dataset_hash, body.permission)
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/trainings')
+    def trainings(ws: str, job: str):
+        return training.repo.list(ws, job)
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/trainings/{run_id}')
+    def get_training(ws: str, job: str, run_id: str):
+        return training.repo.summary(training.repo.get(ws, job, run_id))
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/trainings/{run_id}/cancel')
+    def cancel_training(ws: str, job: str, run_id: str):
+        return training.cancel(ws, job, run_id)
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/trainings/{run_id}/review')
+    def review_training(ws: str, job: str, run_id: str, body: ReviewBody):
+        return training.repo.summary(training.repo.review(ws, job, run_id, body.check_id, body.review))
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/trainings/{run_id}/select')
+    def select_training(ws: str, job: str, run_id: str):
+        return training.select(ws, job, run_id)
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/trainings/{run_id}/export')
+    def export_trained_model(ws: str, job: str, run_id: str):
+        return Response(training.export(ws, job, run_id), media_type='application/zip',
+                        headers={'Content-Disposition': 'attachment; filename="own-trained-model.zip"'})
+
     @app.post('/api/workspaces/{ws}/jobs/{job}/try')
     def try_job(ws: str, job: str, body: TryBody):
         user_input = text(body.input, 'Request', 4000)
@@ -184,7 +257,7 @@ def create_app(data_dir, engine=None):
         if not inference_lock.acquire(blocking=False):
             raise Problem('Your local model is already working. Wait for it to finish and try again.', 409)
         try:
-            output, references, duration = generate(snapshot, user_input)
+            output, references, duration = generate(ws, job, snapshot, user_input)
             return store.record_run(ws, job, snapshot, user_input, output, references, duration, version_id)
         finally:
             inference_lock.release()
@@ -197,7 +270,7 @@ def create_app(data_dir, engine=None):
         try:
             for check in snapshot['checks']:
                 try:
-                    output, _, _ = generate(snapshot, check['input'])
+                    output, _, _ = generate(ws, job, snapshot, check['input'])
                     error = None
                 except Problem as problem:
                     output, error = '', str(problem)
@@ -251,7 +324,7 @@ def create_app(data_dir, engine=None):
 
     @app.get('/{asset}')
     def asset(asset: str):
-        if asset not in ('app.js', 'styles.css', 'mark.svg'):
+        if asset not in ('app.js', 'training.js', 'styles.css', 'mark.svg'):
             return JSONResponse({'error': 'Page not found. Open the app home page.'}, status_code=404)
         return FileResponse(web / asset)
 

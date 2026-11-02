@@ -5,8 +5,10 @@ import json
 BASE = {
     'id': 'HuggingFaceTB/SmolLM2-135M-Instruct',
     'revision': '12fd25f77366fa6b3b4b768ec3050bf629380bac',
+    'weights_sha256': '5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c',
     'license': 'apache-2.0',
-    'license_url': 'https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/main/LICENSE',
+    'license_url': 'https://www.apache.org/licenses/LICENSE-2.0.txt',
+    'model_card_url': 'https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct',
     'label': 'Small local starter · English · 135M',
 }
 CONFIG = {'epochs': 8, 'learning_rate': 0.001, 'rank': 8, 'alpha': 16,

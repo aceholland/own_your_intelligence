@@ -73,7 +73,7 @@ class TrainingRepository:
         if run['status'] != 'complete':
             raise Problem('Wait for training and the before-and-after checks to finish.')
         row = next((r for r in run['results'] if r['check_id'] == check_id), None)
-        if not row or row.get('error') or not row.get('after') or not row.get('before'):
+        if not row or row.get('error') or not row.get('after') or not (row.get('before') or row.get('before_error')):
             raise Problem('This comparison did not finish. Train and compare again.')
         row['review'] = review
         return self.update(ws, job, run_id, results=run['results'])
@@ -85,7 +85,7 @@ class TrainingRepository:
         actual = {r['check_id'] for r in run['results']}
         if run['status'] != 'complete' or not expected or actual != expected or len(run['results']) != len(expected):
             raise Problem('Finish training and every comparison before using this update.')
-        if any(r.get('error') or r.get('review') != 'pass' or not r.get('before') or not r.get('after') for r in run['results']):
+        if any(r.get('error') or r.get('review') != 'pass' or not (r.get('before') or r.get('before_error')) or not r.get('after') for r in run['results']):
             raise Problem('Review every trained answer and mark it looks right before using this update.')
         if self.prepare(ws, job)['dataset_hash'] != run['dataset_hash']:
             raise Problem('Your teaching data or instructions changed. Train a fresh update before selecting it.', 409)

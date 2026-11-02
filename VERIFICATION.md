@@ -17,6 +17,10 @@ No cloud image was built, no remote app was deployed, no GPU job or larger-model
 
 The package manifest says training_performed=false/upload_performed=false, pins the exact base and source hashes, and keeps check targets/reference documents out of request.json. Prepared examples, credentials and local models remain outside Git.
 
+## Subsequent real account connection
+
+The founder created a Modal account and explicitly asked to connect it. The installed official SDK browser approval flow completed. Its token pair was transferred in memory to Own over loopback with proxies disabled, verified using the existing read-only AppList check, and saved using Windows DPAPI. No plaintext Modal profile was created and no keys were logged or exported. Fresh Own status confirmed connected=true, protected connection file present, remote_training_enabled=false. This establishes real authentication; L4 execution, available credits, provider billing limits and actual GPU charges remain unverified. No GPU job or business-data upload was started.
+
 ## Retained Step 2 evidence
 
 # Step 2 verification — 2 November 2026

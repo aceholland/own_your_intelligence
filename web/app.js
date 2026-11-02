@@ -174,14 +174,14 @@ async function loadRoute() {
     state.workspace=workspace;state.job=job;state.trainingRuntime=trainingRuntime;if(gpuStatus)state.gpuStatus=gpuStatus;state.view=view;state.route=location.hash;state.dirty=false;
     renderRail();renderView();
     if(changedRoute){window.scrollTo({top:0});main.focus({preventScroll:true});}
-    if(job&&(job.evaluations[0]?.status==='running'||job.trainings.some(trainingUI.active)||trainingRuntime.status==='installing'||trainingRuntime.busy||gpuStatus?.sdk.status==='installing'))pollChecks();
+    if(job&&(job.evaluations[0]?.status==='running'||job.trainings.some(trainingUI.active)||(job.gpu_runs||[]).some(gpuUI.polling)||trainingRuntime.status==='installing'||trainingRuntime.busy||gpuStatus?.sdk.status==='installing'))pollChecks();
   } catch(error) {
     if(id!==state.serial)return;
     main.innerHTML=`<div class="panel">${empty('We couldn’t open this workspace.',error.message)}<a class="button secondary" href="#home">Back to your workspace</a></div>`;
   } finally {if(id===state.serial)state.loading=false;}
 }
 function renderView() {
-  const titles={teach:'Teach it',train:'Train it',gpu:'Stronger model setup',try:'Try it',check:'Check it',versions:'Versions',library:'Business knowledge',jobs:'Your jobs',home:'Overview'};
+  const titles={teach:'Teach it',train:'Train it',gpu:'Stronger model training',try:'Try it',check:'Check it',versions:'Versions',library:'Business knowledge',jobs:'Your jobs',home:'Overview'};
   $('#breadcrumb').textContent=`${state.workspace.name} / ${state.job ? state.job.name : titles[state.view]||'Overview'}`;
   if(state.job)document.title=`${titles[state.view]||'Job'} · ${state.job.name} — Own`;
   const render=state.job?{teach,train:trainingUI.render,gpu:gpuUI.render,try:tryView,check:checkView,versions:versionsView}[state.view]:{home,jobs:()=>home(true),library}[state.view];
@@ -210,11 +210,11 @@ function pollChecks() {
       const runtime=await api('/api/training/runtime');
       if(serial!==state.serial)return;
       state.trainingRuntime=runtime;
-      if(state.gpuStatus?.sdk.status==='installing'){const gpu=await api('/api/gpu');if(serial!==state.serial)return;state.gpuStatus=gpu;}
+      if(state.view==='gpu'||state.gpuStatus?.sdk.status==='installing'){const gpu=await api('/api/gpu');if(serial!==state.serial)return;state.gpuStatus=gpu;}
       const updated=await refreshJob({render:!state.dirty&&['train','gpu','check','versions'].includes(state.view)});
       if(!updated)return;
-      if(state.job.evaluations[0]?.status==='running'||state.job.trainings.some(trainingUI.active)||runtime.status==='installing'||runtime.busy||state.gpuStatus?.sdk.status==='installing')pollChecks();
-      else notify('Your local AI has finished working. Review the results.');
+      if(state.job.evaluations[0]?.status==='running'||state.job.trainings.some(trainingUI.active)||(state.job.gpu_runs||[]).some(gpuUI.polling)||runtime.status==='installing'||runtime.busy||state.gpuStatus?.sdk.status==='installing')pollChecks();
+      else notify('Your AI job has an update. Review its status and results.');
     } catch(error){notify(error.message,true);}
   },2000);
 }
@@ -415,7 +415,7 @@ async function start() {
     await loadRoute();
   }catch(error){main.innerHTML=`<div class="panel">${empty('Open your local workspace.',error.message)}<button class="button secondary" data-action="reload">Try connecting again</button></div>`;}
 }
-const gpuUI=createGpuUI({state,api,esc,icon,badge,button,field,errorArea,formatDate,jobShell,jobBase,route,openModal,closeModal,notify,refreshJob,poll:pollChecks,download:downloadFile});
+const gpuUI=createGpuUI({state,api,esc,icon,badge,button,field,errorArea,formatDate,jobShell,jobBase,route,openModal,closeModal,notify,refreshJob,poll:pollChecks,confirmAction,download:downloadFile});
 const trainingUI=createTrainingUI({state,api,esc,icon,badge,button,field,errorArea,formatDate,jobShell,jobBase,route,openModal,closeModal,notify,refreshJob,poll:pollChecks,confirmAction,download:downloadFile});
 document.addEventListener('click',event=>{if(event.target.closest('[data-action="reload"]'))location.reload();});
 await start();

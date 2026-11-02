@@ -56,24 +56,27 @@ The sample business uses fictional shop policies. Example request: “How many d
 7. If every answer looks right, choose **Use this training**. This changes the draft. Try it, run **Check it**, and approve a version in **Versions** before using it for approved requests.
 8. **Download trained model** includes actual adapter weights, frozen data, checks, provenance, permission, configuration and a standalone runner. The public base weights are downloaded separately once. Extract the ZIP and follow its README; no Own server or paid API key is required.
 
-This is real weight training with a **small English starter model**, `HuggingFaceTB/SmolLM2-135M-Instruct`, revision `12fd25f77366fa6b3b4b768ec3050bf629380bac` (Apache-2.0). It has limited ability and may be less capable than the existing 1.7B Ollama model. Three examples only let you try the lifecycle; use substantially more varied examples and independent checks before relying on it. Training loss measures fit to teaching data, not accuracy. Stronger-model GPU training is a later stage.
+This is real weight training with a **small English starter model**, `HuggingFaceTB/SmolLM2-135M-Instruct`, revision `12fd25f77366fa6b3b4b768ec3050bf629380bac` (Apache-2.0). It has limited ability and may be less capable than the existing 1.7B Ollama model. Three examples only let you try the lifecycle; use substantially more varied examples and independent checks before relying on it. Training loss measures fit to teaching data, not accuracy. Larger-model GPU training is available as a separate, explicitly approved workflow below; its first real L4 test is pending.
 
 The installer uses Windows extended-length paths rather than changing system settings. All training tools, caches, datasets and model artifacts stay under ignored `data/training/`. Nothing is installed into global Python. Setup needs the internet; training and inference load the local model offline after setup.
 
 ## Set up a stronger model
 
-Open **Train it → Set up a stronger model**. This is the setup-only milestone requested before a cloud account exists.
+Open **Train it → Set up a stronger model**. The account on the development laptop is already connected through real Modal browser approval, and its credentials are protected by Windows DPAPI. Do not reconnect or paste keys into chat.
 
-1. Use the links to create your own Modal account and configure its provider-side spending limit.
+1. Open **Modal billing**. For this first test, set the **Spend limit to $0** and check that free credits remain. This is the net amount paid after credits, separate from the usage limit. Own cannot read or verify those controls; do not start while they are unknown.
 2. The local connection tools are already installed on this development laptop. On another machine, choose **Set up GPU tools** once; this installs Modal 1.6.3 in a separate environment under ignored `data/gpu/`.
 3. Create a token pair in Modal settings, then choose **Connect Modal account**. Inputs are masked with reveal controls. The check only lists apps; it does not deploy anything or start GPU compute. Verified credentials use Windows user-scoped DPAPI; other platforms keep them in process memory only.
-4. You may choose **Prepare training package** without an account. Review the examples and planning allowance, confirm permission, then download the private ZIP. It freezes the examples, exact model/config and trainer source. It contains no credentials or base weights. Its manifest explicitly says no training or upload has happened.
+4. Review the lessons, choose **Train on GPU**, then confirm data-transfer permission, free credits only, the provider's $0 net Spend limit and available credits. Each confirmation is recorded as owner-confirmed, not automatically verified. Only one GPU job can be active, and no automatic training retry is enabled.
+5. Keep Own open. Named preparation stages and actual optimizer steps appear here. **Stop cloud job** requests termination from Modal. If contact is lost, **Stop unconfirmed** blocks another run until provider termination can be confirmed; it never claims a dead local worker stopped cloud compute.
+6. Own verifies the returned archive, model identity, saved weights, completed steps and checks before showing it as complete. Review before/after answers and download the private model. **GPU hosting inside Own is a later step**; this larger adapter cannot be selected into the laptop-only serving path. Existing local training, model selection and approval still work.
+7. **Account and portable setup → Prepare training package** remains available without an account. Its private ZIP freezes the data, public base identity and trainer source without launching or uploading anything. Completed model downloads are separate and contain actual verified adapter weights plus an independent CUDA runner.
 
-The first GPU target is [Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507), pinned revision `cdbee75f17c01a7cc42f958dc650907174af0554`, with a Modal L4. The package contains real LoRA optimization, assistant-only loss, saved-adapter reload/comparison and an independent CUDA runner. **The actual L4 job, real provider authentication and larger-model quality are unverified until an account is created and a run is approved.** Own exposes no remote-launch or GPU-result-import endpoint in this setup milestone.
+The first GPU target is [Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507), pinned revision `cdbee75f17c01a7cc42f958dc650907174af0554`, with a Modal L4 in the US. The trainer performs assistant-only LoRA optimization, verifies changed weights, reloads the saved adapter and compares against the untouched base. **Real provider authentication is verified; actual L4 execution, CUDA compatibility, Qwen3-4B quality, credit balance and net billing controls remain unverified. No cloud test has been started.**
 
 Only teaching examples, job instructions and held-out requests are eligible for a future upload. Expected check answers and reference documents stay local. Files in `local-checks.json` are for local human review. Keep the whole ZIP private. The portable entrypoint checks request/source hashes and separately requires spending, data-transfer and provider-spend-limit acknowledgements.
 
-Planning values are estimates, not hard bill caps. The 2026-11-02 resource snapshot gives about $0.51 for 30 minutes at requested resources; actual compute can vary and startup/preparation/storage/network/taxes can add charges. Provider controls govern the final bill. See [current pricing](https://modal.com/pricing), [resource billing](https://modal.com/docs/guide/resources), [execution timeouts](https://modal.com/docs/guide/timeouts) and [spending limits](https://modal.com/docs/guide/budgets).
+Planning values are estimates, not hard bill caps. The 2026-11-02 snapshot gives about **$0.59 for 30 minutes** at requested resources including the US region multiplier; actual compute, startup, preparation, storage, network and taxes can add usage. Provider controls govern the final bill. See [current pricing](https://modal.com/pricing), [region pricing](https://modal.com/docs/guide/region-selection), [execution timeouts](https://modal.com/docs/guide/timeouts) and [net spend limits](https://modal.com/docs/guide/budgets).
 
 ## Full YC scope and the next stages
 
@@ -83,7 +86,7 @@ The system is industry-independent. `PRODUCT.md` records the complete direction 
 |---|---|---|
 | Workflows become evaluations | Jobs and separate check examples; human reviews | Rich rubrics, metrics, independent datasets and larger evaluation batches |
 | Expertise becomes training data | Reviewed examples, corrections, consent/provenance and frozen datasets | Richer curation and bulk imports |
-| Improve company-owned models | Actual isolated CPU LoRA training and saved adapters | Larger models on approved GPU providers |
+| Improve company-owned models | Verified CPU training; supervised GPU training workflow with result verification | First real L4 test, larger-model quality evaluation |
 | Production failures drive improvement | Persisted answers and manual corrections | Failure diagnosis, fix comparison and rollout monitoring |
 | Control changes | Approved configuration snapshots and rollback | Deployment approvals, canary releases and trained-model rollback |
 | Run where the customer chooses | Local workbench, adapter serving and independent CPU runner | Managed customer-cloud and on-prem deployment |
@@ -91,13 +94,13 @@ The system is industry-independent. `PRODUCT.md` records the complete direction 
 | Carry learning to new base models | Explicit model choice and saved examples | Retrain/evaluate/migrate with compatibility checks |
 | Optional frontier intelligence | No external provider calls | Explicit provider policies, credentials and spending approval |
 
-Cloud GPU training, automatic migration, external tool actions, PDF/Word parsing, billing and production multi-user security are **not implemented**. A workspace data export is distinct from the trained-model download. A small local model is a development tool; quality must be measured for each business task.
+Actual L4 validation, in-app GPU serving, automatic migration, external tool actions, PDF/Word parsing, customer billing and production multi-user security remain unfinished. A workspace data export is distinct from the trained-model download. Quality must be measured for each business task.
 
 ## Data and privacy
 
 Data lives in `data/own.sqlite3` beside this README. Back it up with the app stopped, or use the workspace ZIP export for a portable copy. The app binds only to `127.0.0.1`; do not expose it to the internet. Workspaces separate records and retrieval within one owner's app. They are not production authentication or authorization boundaries.
 
-Business datasets are not encrypted, and there is no access control between people using the same Windows account. Saved GPU token pairs use Windows DPAPI; this does not encrypt business files. Use sample or non-sensitive data while production security is developed. No analytics, remote fonts or paid API calls are built in. The app does not execute instructions as tools or send email. Supplied source passages are not automatically verified citations.
+Business datasets are not encrypted, and there is no access control between people using the same Windows account. Saved GPU token pairs use Windows DPAPI; this does not encrypt business files. Use sample or non-sensitive data while production security is developed. There are no analytics or remote fonts. GPU training uses the owner's external Modal account only after explicit per-run permissions; its usage consumes credits and requires provider billing controls. The app does not execute instructions as tools or send email. Supplied source passages are not automatically verified citations.
 
 Exports include business data; keep them private. Training JSONL excludes held-out checks. Workspace ZIPs contain data/configuration; trained-model ZIPs additionally contain actual adapter weights and a runner. Base weights are obtained separately under the stated license. No export import flow is included yet.
 

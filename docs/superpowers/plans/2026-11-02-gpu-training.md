@@ -14,13 +14,13 @@ Files: own/gpu_jobs.py, own/gpu_result.py, tests/test_gpu_jobs.py, tests/test_gp
 
 ### 2. Real provider bridge and progress
 Files: own/gpu_worker.py, own/gpu_jobs.py, gpu/train_on_gpu.py, gpu/training_core.py, tests/test_gpu_worker.py.
-- [ ] Test worker exit/cancellation/secret boundaries without remote work.
-- [ ] Implement actual ephemeral SDK call/queue, region, measured progress and protected credentials; validate SDK definitions locally, commit.
+- [x] Test worker exit/cancellation/secret boundaries without remote work.
+- [x] Implement actual ephemeral SDK call/queue, region, measured progress and protected credentials; real SDK definitions validate without launch. Actual CPU core result also passed the new verifier.
 
 ### 3. API and simple review/download flow
 Files: own/api.py, web/gpu.js, web/app.js, tests/test_gpu_api.py, tests/browser/gpu-run.cjs.
-- [ ] Add failing API gate/scope/result-download tests; wire supervised lifecycle and UI.
-- [ ] Verify free-only form gates, progress/error recovery, comparison/review, download, narrow layout and unchanged local workflow; run full suite and syntax, commit.
+- [x] Add failing API gate/scope/result-download tests; wire supervised lifecycle and UI.
+- [x] Verify free-only form gates, progress/error recovery, comparison/review, download and 390px layout with controlled provider fixtures. 87 Python tests and JavaScript syntax pass before review.
 
 ### 4. Independent review and first-run handoff
 Files: README.md, NEXT_STEPS.md, VERIFICATION.md, DESIGN.md, UX-CONTRACT.md.

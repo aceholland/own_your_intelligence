@@ -58,4 +58,7 @@ Thin borders on static panels; subtle shadow only on dialogs and the welcome com
 Shared `button`, `field`, `panel`, `notice`, `empty`, `dialog` and `toast` styles. SVG icons use one 1.7px stroke. Native select popup deliberately follows Windows/browser conventions. Native dialog supplies modal semantics and focus isolation.
 
 ## Do's and Don'ts
-Show real saved counts. Say "Not checked" before checks run. Say "Teaching examples", never "trained model", for prompt-based customization. Model training and cloud deployment are visibly future milestones. Show errors beside retained input. Respect reduced motion and visible focus. Use text badges as well as colors. No native alert/confirm/prompt.
+Show real saved counts. Say "Not checked" before checks run. Say "Teaching examples" for prompt-based customization; reserve "trained model" for completed, verified weight updates. Local starter training is available; cloud GPU training and managed deployment remain future milestones. Show errors beside retained input. Respect reduced motion and visible focus. Use text badges as well as colors. No native alert/confirm/prompt.
+
+## Step 2 training
+The Train it tab extends the teaching desk: three real stages, reviewed lessons → real learning steps → paired before/after answers. Reuse the established panel, field, native dialog, progress, badge and notification owners. Do not expose a GPU console or optimizer form to ordinary users. Technical evidence lives under Training details. No new visual tokens. A completed model gets a human comparison, never an invented accuracy score. At narrow widths, comparison columns stack in before/after reading order; all actions remain reachable.

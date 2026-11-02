@@ -1,3 +1,4 @@
+import {createTrainingUI} from './training.js';
 const $ = (selector, root = document) => root.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[character]));
 const paths = {
@@ -54,6 +55,13 @@ const formatDate = value => new Intl.DateTimeFormat(undefined, {month:'short',da
 const number = value => new Intl.NumberFormat().format(value);
 const badge = (label, tone='') => `<span class="badge ${tone}">${esc(label)}</span>`;
 const button = (action, label, glyph='', variant='') => `<button class="button ${variant}" data-action="${action}">${glyph ? icon(glyph,16) : ''}${label}</button>`;
+const modelName = model => model?.startsWith('own:') ? 'Your trained AI · local starter' : model;
+function modelOptions(selected) {
+  return (!selected?'<option value="">Train it first, or choose a local model</option>':'') +
+    (selected?.startsWith('own:')?`<option value="${esc(selected)}" selected>Your trained AI · local starter</option>`:'') +
+    (selected&&!selected.startsWith('own:')&&!state.engine.models.some(m=>m.name===selected)?`<option value="${esc(selected)}">${esc(selected)} — not currently available</option>`:'') +
+    state.engine.models.map(m=>`<option value="${esc(m.name)}" ${m.name===selected?'selected':''}>${esc(m.name)}</option>`).join('');
+}
 const errorArea = () => '<div class="error-box form-errors" role="alert"></div>';
 function field(name, label, value='', {type='text', help='', required=true, max=4000, short=false}={}) {
   const id = `field-${name}`;
@@ -90,11 +98,11 @@ function welcome() {
   document.title = 'Welcome — Own';
   return `<div class="welcome"><div class="welcome-intro"><div class="eyebrow">Your expertise. Your intelligence.</div><h1>Give your business<br>an AI of its own.</h1><p class="lede">Show it how you work. Correct it in your own words.<br>Stay in control as you make it better.</p></div><div class="welcome-composition"><div class="welcome-form"><h2>First, a home for your work.</h2><p class="caption spacer">Create a workspace for your business. You can add more businesses later.</p><form data-form="workspace" novalidate class="spacer">${field('name','What’s your business called?','',{help:'Use a business, team or project name.',max:100})}${errorArea()}<button class="button full" type="submit">Create my workspace ${icon('arrow',17)}</button></form><div class="welcome-divider">or take a look first</div><button class="button secondary full" data-action="sample">Explore a sample business ${icon('arrow',16)}</button><div id="sample-error">${errorArea()}</div></div><div class="welcome-guide"><div class="job-icon">${icon('spark',23)}</div><h3 class="guide-title spacer">You know the job.<br>We make teaching it simple.</h3>${[
     ['1','Show it your way','Describe a job and share a few good examples.'],['2','Give it a try','Ask it to do the work. Fix anything it gets wrong.'],['3','Check before you change','Review real results, then decide what to use.']
-  ].map(([n,title,description])=>`<div class="lesson-step"><span class="step-number">${n}</span><div><strong>${title}</strong><p>${description}</p></div></div>`).join('')}<div class="welcome-bottom">${icon('shield',16)}Stored on this laptop. No account needed.</div></div></div><p class="caption spacer">This first edition builds your teaching and review workflow. Model weight training and cloud deployment come in later steps.</p></div>`;
+  ].map(([n,title,description])=>`<div class="lesson-step"><span class="step-number">${n}</span><div><strong>${title}</strong><p>${description}</p></div></div>`).join('')}<div class="welcome-bottom">${icon('shield',16)}Stored on this laptop. No account needed.</div></div></div><p class="caption spacer">Teach, train and check on this laptop. The small local starter supports real training; cloud deployment is a later step.</p></div>`;
 }
 
 function jobCard(job) {
-  return `<article class="panel job-card"><div class="inline-actions"><div class="job-icon">${icon('jobs')}</div>${badge(job.active_version_id?'Approved version ready':'Getting started',job.active_version_id?'good':'')}</div><h3>${esc(job.name)}</h3><p>${esc(job.goal)}</p><div class="job-card-bottom"><span class="caption">${job.model ? esc(job.model) : 'Choose a local model'}</span><a href="${route('teach',job.id)}">Open job ${icon('arrow',15)}</a></div></article>`;
+  return `<article class="panel job-card"><div class="inline-actions"><div class="job-icon">${icon('jobs')}</div>${badge(job.active_version_id?'Approved version ready':'Getting started',job.active_version_id?'good':'')}</div><h3>${esc(job.name)}</h3><p>${esc(job.goal)}</p><div class="job-card-bottom"><span class="caption">${job.model ? esc(modelName(job.model)) : 'Choose a local model'}</span><a href="${route('teach',job.id)}">Open job ${icon('arrow',15)}</a></div></article>`;
 }
 function home(jobsOnly=false) {
   const w = state.workspace;
@@ -104,12 +112,12 @@ function home(jobsOnly=false) {
 
 function jobShell(content) {
   const j = state.job;
-  return `<a class="back-link" href="${route('jobs')}">${icon('back',15)}Your jobs</a><div class="page-heading job-heading"><div><h1>${esc(j.name)}</h1><p class="lede">${esc(j.goal)}</p></div><div class="job-status">${badge(j.active_version_id?'Approved version available':'Working draft',j.active_version_id?'good':'')}</div></div><nav class="tabbar" aria-label="Job steps">${[['teach','Teach it'],['try','Try it'],['check','Check it'],['versions','Versions']].map(([view,label],i)=>`<a class="tab-link ${state.view===view?'active':''}" href="${route(view,j.id)}" ${state.view===view?'aria-current="page"':''}><span class="tab-index">0${i+1}</span>${label}</a>`).join('')}</nav>${content}`;
+  return `<a class="back-link" href="${route('jobs')}">${icon('back',15)}Your jobs</a><div class="page-heading job-heading"><div><h1>${esc(j.name)}</h1><p class="lede">${esc(j.goal)}</p></div><div class="job-status">${badge(j.active_version_id?'Approved version available':'Working draft',j.active_version_id?'good':'')}</div></div><nav class="tabbar" aria-label="Job steps">${[['teach','Teach it'],['train','Train it'],['try','Try it'],['check','Check it'],['versions','Versions']].map(([view,label],i)=>`<a class="tab-link ${state.view===view?'active':''}" href="${route(view,j.id)}" ${state.view===view?'aria-current="page"':''}><span class="tab-index">0${i+1}</span>${label}</a>`).join('')}</nav>${content}`;
 }
 
 function teach() {
   const j = state.job, teaching = j.examples.filter(e=>e.kind==='teach');
-  return jobShell(`<div class="two-column"><section class="panel"><div class="panel-header"><h2>Tell it how you work.</h2>${icon('edit')}</div><p class="caption">Use the same words you would use with a new colleague.</p><form data-form="instructions" data-revision="${j.revision}" novalidate class="spacer">${field('goal','What is the job?',j.goal,{type:'textarea',max:1500,short:true})}${field('instructions','Anything it should always remember?',j.instructions,{type:'textarea',required:false,help:'For example: be friendly, keep replies short, and ask if information is missing.',max:4000})}<div class="field"><label for="model-select">Which local AI should do the work?</label><select name="model" id="model-select" required aria-describedby="model-help">${!j.model?'<option value="">Choose a local model</option>':''}${j.model&&!state.engine.models.some(m=>m.name===j.model)?`<option value="${esc(j.model)}">${esc(j.model)} — not currently available</option>`:''}${state.engine.models.map(m=>`<option value="${esc(m.name)}" ${m.name===j.model?'selected':''}>${esc(m.name)}</option>`).join('')}</select><small id="model-help">${state.engine.models.length?'Runs through Ollama on this laptop.':'No installed models found. Open AI connection for setup.'}</small><button type="button" class="text-button" data-action="connection">Check AI connection ${icon('arrow',13)}</button></div>${errorArea()}<div class="form-actions"><span class="caption" id="save-status">Saved instructions</span><button class="button" type="submit">Save instructions ${icon('check',16)}</button></div></form></section><div class="stack"><section class="panel"><div class="panel-header"><h3>Show a good example</h3>${badge(`${teaching.length} saved`)}</div><p class="caption">A request and the answer you would want. Your AI can refer to these examples.</p>${teaching.length?`<div class="spacer">${teaching.slice(-3).reverse().map(e=>`<div class="example"><span class="example-label">Someone asks</span><p>${esc(e.input)}</p><span class="example-label">A good answer</span><p>${esc(e.output)}</p></div>`).join('')}</div>`:''}<button class="button secondary full spacer" data-action="add-teach">${icon('plus',16)}Add a teaching example</button></section><div class="notice">${icon('info')}<div><strong>Teaching starts with examples.</strong><p>This edition uses instructions and examples when answering. It does not retrain model weights. Saved examples can be exported for future training.</p></div></div><a class="text-button" href="${route('library')}">${icon('book',17)}Add reference files to your business library ${icon('arrow',14)}</a></div></div>`);
+  return jobShell(`<div class="two-column"><section class="panel"><div class="panel-header"><h2>Tell it how you work.</h2>${icon('edit')}</div><p class="caption">Use the same words you would use with a new colleague.</p><form data-form="instructions" data-revision="${j.revision}" novalidate class="spacer">${field('goal','What is the job?',j.goal,{type:'textarea',max:1500,short:true})}${field('instructions','Anything it should always remember?',j.instructions,{type:'textarea',required:false,help:'For example: be friendly, keep replies short, and ask if information is missing.',max:4000})}<div class="field"><label for="model-select">Which local AI should do the work?</label><select name="model" id="model-select" aria-describedby="model-help">${modelOptions(j.model)}</select><small id="model-help">${j.model.startsWith('own:')?'Your saved training runs on this laptop. Manage it in Train it.':state.engine.models.length?'Runs through Ollama on this laptop.':'No installed models found. Open AI connection for setup.'}</small><button type="button" class="text-button" data-action="connection">Check AI connection ${icon('arrow',13)}</button></div>${errorArea()}<div class="form-actions"><span class="caption" id="save-status">Saved instructions</span><button class="button" type="submit">Save instructions ${icon('check',16)}</button></div></form></section><div class="stack"><section class="panel"><div class="panel-header"><h3>Show a good example</h3>${badge(`${teaching.length} saved`)}</div><p class="caption">A request and the answer you would want. Your AI can refer to these examples.</p>${teaching.length?`<div class="spacer">${teaching.slice(-3).reverse().map(e=>`<div class="example"><span class="example-label">Someone asks</span><p>${esc(e.input)}</p><span class="example-label">A good answer</span><p>${esc(e.output)}</p></div>`).join('')}</div>`:''}<button class="button secondary full spacer" data-action="add-teach">${icon('plus',16)}Add a teaching example</button><button class="text-button spacer" data-action="review-examples">Review or edit all examples ${icon('arrow',14)}</button></section><div class="notice">${icon('info')}<div><strong>Teaching starts with examples.</strong><p>Examples help guide your answers. Open Train it to turn your reviewed examples into a real model update and compare its results.</p></div></div><a class="text-button" href="${route('library')}">${icon('book',17)}Add reference files to your business library ${icon('arrow',14)}</a></div></div>`);
 }
 
 function referencesMarkup(references) {
@@ -117,11 +125,11 @@ function referencesMarkup(references) {
   return `<details class="sources"><summary>${references.length} reference passage${references.length===1?'':'s'} supplied to the AI</summary><p class="caption spacer">These are the passages it received, not independently verified citations.</p>${references.map(r=>`<div class="source-passage"><strong>[${esc(r.id)}] ${esc(r.title)}</strong>${esc(r.passage)}</div>`).join('')}</details>`;
 }
 function answerMarkup(run) {
-  return `<div class="panel-header"><h2>Here’s its answer.</h2>${badge(run.version_id?'Approved version':'Draft answer')}</div><div class="request-text">${esc(run.input)}</div><div class="answer">${esc(run.output)}</div>${referencesMarkup(run.references)}<div class="answer-meta"><span>${esc(run.model)} · ${(run.duration_ms/1000).toFixed(1)} seconds</span>${run.corrected_output?badge('Correction saved','good'):`<button class="button secondary small" data-action="correct" data-id="${run.id}">${icon('edit',14)}Fix this answer</button>`}</div>${run.corrected_output?`<div class="notice spacer">${icon('check')}<div><strong>Your correction is saved to the draft.</strong><p>Check the updated draft before approving a new version.</p></div></div>`:''}`;
+  return `<div class="panel-header"><h2>Here’s its answer.</h2>${badge(run.version_id?'Approved version':'Draft answer')}</div><div class="request-text">${esc(run.input)}</div><div class="answer">${esc(run.output)}</div>${referencesMarkup(run.references)}<div class="answer-meta"><span>${esc(modelName(run.model))} · ${(run.duration_ms/1000).toFixed(1)} seconds</span>${run.corrected_output?badge('Correction saved','good'):`<button class="button secondary small" data-action="correct" data-id="${run.id}">${icon('edit',14)}Fix this answer</button>`}</div>${run.corrected_output?`<div class="notice spacer">${icon('check')}<div><strong>Your correction is saved to the draft.</strong><p>Check the updated draft before approving a new version.</p></div></div>`:''}`;
 }
 function tryView() {
   const j=state.job;
-  return jobShell(`<div class="two-column"><div class="stack"><section class="panel"><div class="panel-header"><h2>Give it a real task.</h2>${icon('spark')}</div><form data-form="try" novalidate>${field('input','What would you like it to do?',state.requests.get(j.id)||'',{type:'textarea',help:'Start with a short request. Small local models work best on focused tasks.'})}<div class="field"><label for="run-mode">Try which version?</label><select name="mode" id="run-mode"><option value="draft">Current draft</option>${j.active_version_id?'<option value="live">Approved version</option>':''}</select></div>${errorArea()}<div class="form-actions"><button class="button" type="submit">Try my AI ${icon('arrow',16)}</button></div></form></section><section class="panel" id="answer-panel" aria-live="polite">${j.runs.length?answerMarkup(j.runs[0]):empty('Your first answer will appear here.','Try a task, review the answer and teach it what good work looks like.','','','spark')}</section></div><aside class="stack"><div class="panel mini-note"><div class="job-icon">${icon('edit')}</div><h3>Not quite right? Show it.</h3><p class="spacer">Choose <strong>Fix this answer</strong> and write the answer you wanted. We’ll save it as a teaching example in your draft.</p><hr class="rule"><p>Only relevant text passages and up to two teaching examples are supplied per request. This first edition uses keyword matching, so check what it found.</p></div><section class="panel"><div class="panel-header"><h3>Recent requests</h3>${icon('clock',17)}</div>${j.runs.length?j.runs.slice(0,5).map(r=>`<div class="history-item"><p>${esc(r.input)}</p><small>${esc(formatDate(r.created_at))} · ${r.version_id?'Approved':'Draft'}</small></div>`).join(''):'<p class="caption">Your recent requests will be saved here.</p>'}</section></aside></div>`);
+  return jobShell(`<div class="two-column"><div class="stack"><section class="panel"><div class="panel-header"><h2>Give it a real task.</h2>${icon('spark')}</div><form data-form="try" novalidate>${field('input','What would you like it to do?',state.requests.get(j.id)||'',{type:'textarea',help:'Start with a short request. Small local models work best on focused tasks.'})}<div class="field"><label for="run-mode">Try which version?</label><select name="mode" id="run-mode"><option value="draft">Current draft</option>${j.active_version_id?'<option value="live">Approved version</option>':''}</select></div>${errorArea()}<div class="form-actions"><button class="button" type="submit">Try my AI ${icon('arrow',16)}</button></div></form></section><section class="panel" id="answer-panel" aria-live="polite">${j.runs.length?answerMarkup(j.runs[0]):empty('Your first answer will appear here.','Try a task, review the answer and teach it what good work looks like.','','','spark')}</section></div><aside class="stack"><div class="panel mini-note"><div class="job-icon">${icon('edit')}</div><h3>Not quite right? Show it.</h3><p class="spacer">Choose <strong>Fix this answer</strong> and write the answer you wanted. We’ll save it as a teaching example in your draft.</p><hr class="rule"><p>Relevant reference passages use keyword matching. Ollama requests can also include up to two teaching examples; your trained AI uses its saved weights instead. Check company facts carefully.</p></div><section class="panel"><div class="panel-header"><h3>Recent requests</h3>${icon('clock',17)}</div>${j.runs.length?j.runs.slice(0,5).map(r=>`<div class="history-item"><p>${esc(r.input)}</p><small>${esc(formatDate(r.created_at))} · ${r.version_id?'Approved':'Draft'}</small></div>`).join(''):'<p class="caption">Your recent requests will be saved here.</p>'}</section></aside></div>`);
 }
 
 function evaluationMarkup(evaluation) {
@@ -156,22 +164,23 @@ async function loadRoute() {
   try {
     const workspace=await api(`/api/workspaces/${workspaceId}`);
     const job=jobId?await api(`/api/workspaces/${workspaceId}/jobs/${jobId}`):null;
+    const trainingRuntime=job?await api('/api/training/runtime'):null;
     if(id!==state.serial)return;
     const changedRoute=state.route!==location.hash;
-    state.workspace=workspace;state.job=job;state.view=view;state.route=location.hash;state.dirty=false;
+    state.workspace=workspace;state.job=job;state.trainingRuntime=trainingRuntime;state.view=view;state.route=location.hash;state.dirty=false;
     renderRail();renderView();
     if(changedRoute){window.scrollTo({top:0});main.focus({preventScroll:true});}
-    if(job?.evaluations[0]?.status==='running')pollChecks();
+    if(job&&(job.evaluations[0]?.status==='running'||job.trainings.some(trainingUI.active)||trainingRuntime.status==='installing'||trainingRuntime.busy))pollChecks();
   } catch(error) {
     if(id!==state.serial)return;
     main.innerHTML=`<div class="panel">${empty('We couldn’t open this workspace.',error.message)}<a class="button secondary" href="#home">Back to your workspace</a></div>`;
   } finally {if(id===state.serial)state.loading=false;}
 }
 function renderView() {
-  const titles={teach:'Teach it',try:'Try it',check:'Check it',versions:'Versions',library:'Business knowledge',jobs:'Your jobs',home:'Overview'};
+  const titles={teach:'Teach it',train:'Train it',try:'Try it',check:'Check it',versions:'Versions',library:'Business knowledge',jobs:'Your jobs',home:'Overview'};
   $('#breadcrumb').textContent=`${state.workspace.name} / ${state.job ? state.job.name : titles[state.view]||'Overview'}`;
   if(state.job)document.title=`${titles[state.view]||'Job'} · ${state.job.name} — Own`;
-  const render=state.job?{teach,try:tryView,check:checkView,versions:versionsView}[state.view]:{home,jobs:()=>home(true),library}[state.view];
+  const render=state.job?{teach,train:trainingUI.render,try:tryView,check:checkView,versions:versionsView}[state.view]:{home,jobs:()=>home(true),library}[state.view];
   main.innerHTML=render?render():`<div class="panel">${empty('This page isn’t here.','Use the workspace navigation to continue.')}<a class="button secondary" href="${route()}">Back to overview</a></div>`;
 }
 function go(hash) {if(location.hash===hash)loadRoute();else location.hash=hash;}
@@ -193,10 +202,14 @@ function pollChecks() {
   state.polling=setTimeout(async()=>{
     if(!state.job)return;
     try {
-      const updated=await refreshJob({render:state.view==='check'||state.view==='versions'});
+      const serial=state.serial;
+      const runtime=await api('/api/training/runtime');
+      if(serial!==state.serial)return;
+      state.trainingRuntime=runtime;
+      const updated=await refreshJob({render:!state.dirty&&['train','check','versions'].includes(state.view)});
       if(!updated)return;
-      if(state.job.evaluations[0]?.status==='running')pollChecks();
-      else notify('Checks finished. Review each answer.');
+      if(state.job.evaluations[0]?.status==='running'||state.job.trainings.some(trainingUI.active)||runtime.status==='installing'||runtime.busy)pollChecks();
+      else notify('Your local AI has finished working. Review the results.');
     } catch(error){notify(error.message,true);}
   },2000);
 }
@@ -204,7 +217,7 @@ function pollChecks() {
 function validate(form) {
   let first=null;
   for(const input of form.querySelectorAll('input[required],textarea[required],select[required]')) {
-    const invalid=!input.value.trim();
+    const invalid=input.type==='checkbox'?!input.checked:!input.value.trim();
     input.setAttribute('aria-invalid',String(invalid));
     const error=$(`#${input.id}-error`);
     if(error)error.textContent=invalid?'Add this information to continue.':'';
@@ -245,6 +258,7 @@ document.addEventListener('submit',event=>{
   const jobPath=`${workspacePath}/jobs/${origin.job}`;
   const stillHere=()=>origin.serial===state.serial&&origin.workspace===state.workspace?.id&&origin.job===state.job?.id;
   formAction(form,async data=>{
+    if(await trainingUI.submit(type,form,data,jobPath,stillHere))return;
     if(type==='workspace'){
       const workspace=await api('/api/workspaces',{method:'POST',body:data});
       state.workspaces.push(workspace);if(!stillHere())return;closeModal();go(`#w/${workspace.id}/home`);notify('Your workspace is ready.');
@@ -279,9 +293,7 @@ async function connectionDialog() {
   const selector=$('#model-select');
   if(selector){
     const selected=selector.value;
-    selector.innerHTML=(selected&&!engine.models.some(m=>m.name===selected)?`<option value="${esc(selected)}">${esc(selected)} — not currently available</option>`:'')+
-      (!selected?'<option value="">Choose a local model</option>':'')+
-      engine.models.map(m=>`<option value="${esc(m.name)}" ${m.name===selected?'selected':''}>${esc(m.name)}</option>`).join('');
+    selector.innerHTML=modelOptions(selected);
     $('#model-help').textContent=engine.models.length?'Runs through Ollama on this laptop.':'No installed models found. Open AI connection for setup.';
   }
   if(!modal.open)return;
@@ -304,11 +316,14 @@ document.addEventListener('dragleave',event=>{if(event.target.closest('#drop-are
 document.addEventListener('drop',event=>{if(event.target.closest('#drop-area')){event.preventDefault();$('#drop-area').classList.remove('dragging');if(event.dataTransfer.files[0])upload(event.dataTransfer.files[0]);}});
 
 async function downloadWorkspace() {
-  const response=await fetch(`${base()}/export`,{headers:{'X-Own-Token':state.token}});
-  if(!response.ok)throw new Error('The export could not finish. Try again.');
-  const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');
-  link.href=url;link.download='own-workspace.zip';link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  await downloadFile(`${base()}/export`,'own-workspace.zip');
   closeModal();notify('Workspace export downloaded. Keep it private.');
+}
+async function downloadFile(path,filename) {
+  const response=await fetch(path,{headers:{'X-Own-Token':state.token}});
+  if(!response.ok){const error=await response.json().catch(()=>({}));throw new Error(error.error||'The export could not finish. Try again.');}
+  const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');
+  link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 
 async function makeSample(buttonElement) {
@@ -326,7 +341,7 @@ async function makeSample(buttonElement) {
   finally{buttonElement.disabled=false;buttonElement.classList.remove('busy');}
 }
 function roadmap() {
-  const rows=[['Local teaching workbench','Business jobs, reference notes, real model answers, corrections, separate checks, approval and data exports.','Available in this edition'],['Train your business model','Approved datasets, permission records, cloud GPU training, spending approval and real adapters.','Next milestone'],['Run it where you choose','Export model artifacts and a tested runner; deploy to customer cloud or supported on-prem hardware.','Planned'],['Improve from real work','Investigate failures, compare fixes, measure quality and cost, then release approved improvements.','Planned'],['Carry your expertise forward','Evaluate new base models, migrate specializations and optionally route difficult requests to approved frontier models.','Planned']];
+  const rows=[['Local teaching workbench','Business jobs, reference notes, real model answers, corrections, separate checks, approval and data exports.','Available in this edition'],['Train your business model','Reviewed frozen datasets, permission records, actual local LoRA training, comparisons and real adapter export.','Available · small local starter'],['Run it where you choose','Adapter export and standalone CPU runner available. Managed cloud and on-prem deployment are later steps.','Local runner available'],['Improve from real work','Investigate failures, compare fixes, measure quality and cost, then release approved improvements.','Planned'],['Carry your expertise forward','Evaluate new base models, migrate specializations and optionally route difficult requests to approved frontier models.','Planned']];
   openModal('The bigger picture',`<p>One platform for different businesses. Each business keeps its own knowledge, examples and model customization.</p>${rows.map(([title,description,status],i)=>`<div class="roadmap-row"><span class="step-number">${i+1}</span><div class="roadmap-copy"><strong>${title}</strong><p>${description}</p>${badge(status,i===0?'good':'')}</div></div>`).join('')}<div class="form-actions"><button class="button secondary" data-action="close-modal">Back to my workspace</button></div>`);
 }
 
@@ -342,6 +357,7 @@ document.addEventListener('click',async event=>{
     notify('Save your instructions first.',true);return;
   }
   try{
+    if(await trainingUI.handle(action,target))return;
     if(action==='close-modal')closeModal();
     else if(action==='confirm-modal'){
       const callback=modalCallback;target.disabled=true;target.classList.add('busy');
@@ -378,7 +394,7 @@ document.addEventListener('click',async event=>{
     else if(action==='sample')await makeSample(target);
   }catch(error){
     target.disabled=false;notify(error.message,true);
-    const area=modal.open?$('.form-errors',modal):$('#check-action-error .error-box');
+    const area=modal.open?$('.form-errors',modal):$('#training-action-error .error-box')||$('#check-action-error .error-box');
     if(area)area.textContent=error.message;
   }
 });
@@ -391,5 +407,6 @@ async function start() {
     await loadRoute();
   }catch(error){main.innerHTML=`<div class="panel">${empty('Open your local workspace.',error.message)}<button class="button secondary" data-action="reload">Try connecting again</button></div>`;}
 }
+const trainingUI=createTrainingUI({state,api,esc,icon,badge,button,field,errorArea,formatDate,jobShell,jobBase,route,openModal,closeModal,notify,refreshJob,poll:pollChecks,confirmAction,download:downloadFile});
 document.addEventListener('click',event=>{if(event.target.closest('[data-action="reload"]'))location.reload();});
 await start();

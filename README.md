@@ -1,10 +1,10 @@
 # Own — your local business AI workbench
 
-Step 1 of a platform for company-owned intelligence. Made for ordinary employees: describe a job, show examples, try it, correct it, check new cases, approve a version, and keep your data.
+Local business AI with actual per-business model training. Describe a job, show examples, train a private model update, compare answers, then check and approve it.
 
 ![Own local teaching and evaluation workbench](docs/preview.jpg)
 
-The next session starts with [Step 2: actual model specialization](NEXT_STEPS.md). This repository contains application source and documentation; local business data, credentials and downloaded models are excluded.
+This repository contains application source and documentation. Local business data, trained weights, credentials and downloaded models are excluded from Git. The current scope and remaining stages are in [NEXT_STEPS.md](NEXT_STEPS.md).
 
 ## Open it
 
@@ -39,6 +39,26 @@ The sample business uses fictional shop policies. Example request: “How many d
 - Separate check examples, background check runs and manual review.
 - Immutable approved configuration snapshots, explicit approval and switching versions.
 - ZIP data/configuration export including teaching-only training JSONL and separately held-out checks.
+- Example editing with conflict detection; frozen datasets and recorded permission/provenance.
+- Actual CPU LoRA training using a pinned shared SmolLM2 base, with separate adapters for each business job.
+- Real training steps, cancellation, restart recovery and failure reporting.
+- Saved-adapter reload and before/after answers on held-out checks, with human review.
+- Trained-adapter serving in Try it, existing check/approval/version controls, and model export with an independent runner.
+
+## Train your business AI
+
+1. In **Teach it**, add at least **3 correct teaching examples**. Use **Review or edit all examples** to improve them.
+2. In **Check it**, add at least **1 different request** and its expected answer. These checks never enter the training loop.
+3. Open **Train it**. Choose **Set up local training** once. This installs isolated CPU tools and downloads the public starter model (about 270 MB plus dependencies; allow about 2 GB of disk space).
+4. Choose **Train my AI**, review the counts and confirm permission. Training runs on this laptop; no business data is uploaded and there is no provider charge.
+5. Keep Own running. You may leave the tab and return; actual training progress is saved. **Stop training** keeps examples and earlier versions safe.
+6. Compare the real answers before and after training. Both use the identical base and instructions, without teaching examples or reference notes in the prompt. Mark each trained answer **Looks right** or **Needs work**.
+7. If every answer looks right, choose **Use this training**. This changes the draft. Try it, run **Check it**, and approve a version in **Versions** before using it for approved requests.
+8. **Download trained model** includes actual adapter weights, frozen data, checks, provenance, permission, configuration and a standalone runner. The public base weights are downloaded separately once. Extract the ZIP and follow its README; no Own server or paid API key is required.
+
+This is real weight training with a **small English starter model**, `HuggingFaceTB/SmolLM2-135M-Instruct`, revision `12fd25f77366fa6b3b4b768ec3050bf629380bac` (Apache-2.0). It has limited ability and may be less capable than the existing 1.7B Ollama model. Three examples only let you try the lifecycle; use substantially more varied examples and independent checks before relying on it. Training loss measures fit to teaching data, not accuracy. Stronger-model GPU training is a later stage.
+
+The installer uses Windows extended-length paths rather than changing system settings. All training tools, caches, datasets and model artifacts stay under ignored `data/training/`. Nothing is installed into global Python. Setup needs the internet; training and inference load the local model offline after setup.
 
 ## Full YC scope and the next stages
 
@@ -47,16 +67,16 @@ The system is industry-independent. `PRODUCT.md` records the complete direction 
 | YC capability | This edition | Next implementation |
 |---|---|---|
 | Workflows become evaluations | Jobs and separate check examples; human reviews | Rich rubrics, metrics, independent datasets and larger evaluation batches |
-| Expertise becomes training data | Teaching examples and correction JSONL | Consent/provenance review and dataset curation |
-| Improve company-owned models | Prompt/example customization only | Actual isolated LoRA training jobs and trained artifact registry |
+| Expertise becomes training data | Reviewed examples, corrections, consent/provenance and frozen datasets | Richer curation and bulk imports |
+| Improve company-owned models | Actual isolated CPU LoRA training and saved adapters | Larger models on approved GPU providers |
 | Production failures drive improvement | Persisted answers and manual corrections | Failure diagnosis, fix comparison and rollout monitoring |
 | Control changes | Approved configuration snapshots and rollback | Deployment approvals, canary releases and trained-model rollback |
-| Run where the customer chooses | Local workbench and local inference | Reproducible customer-cloud and on-prem runner |
-| Retain ownership | Portable business data and configuration | Licensed model artifacts and independently tested serving package |
+| Run where the customer chooses | Local workbench, adapter serving and independent CPU runner | Managed customer-cloud and on-prem deployment |
+| Retain ownership | Portable data, real adapter weights and exact base identity/license | Broader serving formats and deployment packages |
 | Carry learning to new base models | Explicit model choice and saved examples | Retrain/evaluate/migrate with compatibility checks |
 | Optional frontier intelligence | No external provider calls | Explicit provider policies, credentials and spending approval |
 
-Training model weights, trained adapter export, automatic migration, external tool actions, PDF/Word parsing, billing and production multi-user security are **not implemented**. Data export is not a trained model. A small local model is a development tool, not evidence that every business task can be automated reliably.
+Cloud GPU training, automatic migration, external tool actions, PDF/Word parsing, billing and production multi-user security are **not implemented**. A workspace data export is distinct from the trained-model download. A small local model is a development tool; quality must be measured for each business task.
 
 ## Data and privacy
 
@@ -64,7 +84,7 @@ Data lives in `data/own.sqlite3` beside this README. Back it up with the app sto
 
 There is no encryption or access control between people using the same Windows account. Use sample or non-sensitive data while production security is developed. No analytics, remote fonts or paid API calls are built in. The app does not execute instructions as tools or send email. Supplied source passages are not automatically verified citations.
 
-Exports include business data; keep them private. Training JSONL excludes held-out checks. Exported model names still require obtaining the original model under its applicable license; model weights are not inside the archive. No export import flow is included yet.
+Exports include business data; keep them private. Training JSONL excludes held-out checks. Workspace ZIPs contain data/configuration; trained-model ZIPs additionally contain actual adapter weights and a runner. Base weights are obtained separately under the stated license. No export import flow is included yet.
 
 ## Limits and recovery
 
@@ -72,8 +92,10 @@ Exports include business data; keep them private. Training JSONL excludes held-o
 - UTF-8 files up to 1 MB and 200,000 characters each. PDFs and Word files are rejected with guidance.
 - 200 examples per job; up to 10 checks in a local check run.
 - Recent 20 answers and 10 evaluation runs displayed/exported per job, plus all examples, files and approved versions. The database retains older records.
-- One model request at a time. A model response may take up to three minutes; keep tasks short.
-- At most three matching text passages and two teaching examples enter a request. This is keyword retrieval, not semantic search.
+- One model operation at a time. Training occupies the local inference slot. A model response may take up to three minutes; keep tasks short.
+- Starter training uses 8 passes, one example per step, rank-8 LoRA, assistant-only loss and at most 384 tokens per full teaching conversation. Long examples fail with guidance; nothing is silently trimmed. Each run has a two-hour learning limit.
+- Starter requests allow 2,048 input tokens and 100 output tokens. Limited outputs are rejected rather than silently returned as complete answers.
+- At most three matching text passages and two teaching examples enter an Ollama request. Trained-model requests use the learned adapter and reference passages, without pasted teaching examples. This is keyword retrieval, not semantic search.
 - Changing a job, teaching example, source file or check example requires fresh checks before approving. The draft does not overwrite an approved version.
 - If Own stops, reopen START.cmd. If Ollama stops, open it and check the connection. A browser refresh reconnects a changed local session.
 
@@ -86,6 +108,7 @@ Install test tooling with `python -m pip install -r requirements-dev.txt` if nee
 ```text
 python -m unittest discover -s tests -v
 node --check web/app.js
+node --check web/training.js
 ```
 
 Tests use temporary SQLite databases and a controlled model transport. They do not download models, spend money or establish real-model quality. Actual model availability and browser checks are recorded separately in `VERIFICATION.md`.

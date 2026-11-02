@@ -1,6 +1,6 @@
 # Own interaction contract
 
-Business authority: `PRODUCT.md`, user requirements recorded there. All workspaces belong to one local owner; no claim of multi-user security, encryption, model training or model-weight export. No billing or external tool execution. No destructive operations in this milestone. Download exposes the selected workspace's business data to a local ZIP file, with an explicit explanation before download.
+Business authority: `PRODUCT.md` and `docs/superpowers/specs/2026-11-02-business-training-design.md`. All workspaces belong to one local owner; no claim of multi-user security or encryption. Real local starter training and adapter export are implemented in Step 2. No billing or external business-data transfer. Download exposes the selected workspace's business data to a local ZIP file, with an explicit explanation before download.
 
 ## Canonical UI Map
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
@@ -27,7 +27,16 @@ One shared modal uses `<dialog>.showModal()`, titled by `aria-labelledby`; close
 
 Save and generation buttons have stable minimum geometry and disabled/busy states. User input stays in the current form on errors. Unsaved instruction changes require a navigation choice; try-request drafts are kept in memory by job. No sensitive content in URLs or browser storage. Route hash stores workspace ID, job ID and screen only. History restores navigation; invalid routes show a recoverable error.
 
-Polling is restricted to active evaluations and ignores stale route responses. Empty library and examples show next steps. Every background error remains inline, beyond toast lifetime. Status colors have equivalent text. No table selection, paging, date picker, password, search, multi-user session or payment primitives are applicable.
+Polling is restricted to active evaluations, setup and training; it ignores stale route responses. Polling never replaces an unsaved instructions form or a modal input. Empty library and examples show next steps. Every background error remains inline, beyond toast lifetime. Status colors have equivalent text. No table selection, paging, date picker, password, search, multi-user session or payment primitives are applicable.
+
+## Training flow
+- Review/edit: the same modal/field/formAction owners edit teaching or check examples. Expected original records prevent lost updates. Edits affect the draft and invalidate old checks; frozen training and approved versions remain immutable.
+- Setup: an explicit Set up local training action installs a private dependency environment and public model. Show real named stages without invented percentages; errors persist with retry. Setup has no provider charge and sends no business data.
+- Train: permission confirmation names business and counts, uses a dataset hash to reject stale confirmations, and records provenance. The shared form owner validates the checkbox and focuses it on error. The browser can leave and return while the server supervises the worker.
+- Progress: measured completed training steps; reloading saved weights and comparing are named later stages. Stop training cancels only the active scoped job. Failed/interrupted/partial outputs cannot be selected.
+- Compare: frozen held-out requests, same base revision/instructions/decoding, no teaching or document prompt leakage. Human Looks right/Needs work decisions; loss stays in a disclosure and is explicitly not accuracy.
+- Use: all candidate answers reviewed right and dataset still current; select immutable adapter for the draft. Existing checks and version approval still gate approved use. Earlier approved model IDs continue resolving their original adapters.
+- Download trained model: explicit private-data explanation; real adapter, exact public base identity, provenance/config/dataset and standalone runner. Public base weights are excluded. Workspace export remains a separate data/config archive.
 
 ## Scope limits
 Files: UTF-8 .txt/.md/.csv, <=1 MB and <=200,000 characters, up to 40 per workspace. One file per upload; picker and drop surface share validation/error behavior. No PDF parser in this milestone. Workspaces <=30, jobs <=100, examples <=200; check runs <=10. Only recent 20 answers and 10 check runs are shown; exports include that same recent history plus all sources, examples and approved versions.

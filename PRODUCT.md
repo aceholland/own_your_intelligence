@@ -19,7 +19,7 @@ Use the working name Own. No industry-specific schema. Default language English;
 
 ## Full YC feature sequence
 1. Local workbench: workflow definitions, documents, expert examples, production runs, corrections, separate evaluations, approval/rollback, portable data exports.
-2. Governed dataset builder and cloud LoRA training: permission/provenance, cost estimates, explicit consent, isolated credentials, job history and actual adapters.
+2. Governed dataset builder and actual LoRA training: local CPU starter available with permission/provenance, explicit consent, job history and isolated adapters; larger-model GPU training remains next.
 3. Controlled deployment and ownership: real model artifacts, licensed runner, reproducible serving, customer cloud and on-prem support.
 4. Failure-driven improvement: diagnosis, compare deterministic/retrieval/prompt/training fixes, held-out evaluation and rollout monitoring.
 5. Base-model migration and optional frontier routing: explicit policies and approvals, quality/cost comparisons, tested migration, private deployment boundaries.
@@ -29,3 +29,8 @@ Cloud SaaS first creates credential, cost and data-handling dependencies before 
 
 ## Acceptance
 Persist across restart; workspace data never crosses retrieval/export boundaries; unsafe/oversized files fail clearly; no inference is fabricated; save corrections independently; no test leakage; reviewed evaluations bind to a specific snapshot; stale checks cannot approve a changed draft; switching versions restores actual snapshot behavior; export is self-describing and accurately lists missing model weights; interface works at laptop and phone widths with keyboard labels, visible focus and useful errors.
+
+## Milestone 2: local weight training
+The current user asked for actual per-business retraining and very simple controls. The implemented local starter shares a pinned SmolLM2-135M-Instruct base while keeping datasets and LoRA adapters separate by workspace/job. It records permission, freezes datasets, performs real assistant-only weight updates, reloads saved safetensors, compares against the untouched base, requires human review before draft selection, and retains the existing check/approval/version flow. A baseline generation failure is a visible before-training outcome; successful candidate answers still run and require review. Candidate failures block selection. A private model export includes an independent runner and exact base revision/license/checksum, with base weights obtained separately.
+
+Full-weight training of the original 1.7B model is still a poor CPU default on this laptop. Small adapter training is feasible and proves the lifecycle. This builder choice avoids paid GPU dependencies now; it does not claim frontier-model quality or complete the cloud, security and deployment roadmap.

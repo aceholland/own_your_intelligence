@@ -16,7 +16,7 @@ Python and the app dependencies were already available on the development laptop
 
 ## Try real AI
 
-Open Ollama. In Own, select **AI connection**. If a model is missing, run **INSTALL LOCAL MODEL.cmd** once; the suggested `qwen3:1.7b` model downloads about 1.4 GB. Business requests use the local Ollama service at `127.0.0.1:11434`; the app has no paid API integration. You may choose another installed local model.
+Open Ollama. In Own, select **AI connection**. If a model is missing, run **INSTALL LOCAL MODEL.cmd** once; the suggested `qwen3:1.7b` model downloads about 1.4 GB. Business requests use the local Ollama service at `127.0.0.1:11434`; in-app inference stays local. GPU setup does not launch compute. You may choose another installed local model.
 
 1. Open a job and select **Teach it**.
 2. Choose the installed model, explain the job, and save instructions.
@@ -60,6 +60,21 @@ This is real weight training with a **small English starter model**, `HuggingFac
 
 The installer uses Windows extended-length paths rather than changing system settings. All training tools, caches, datasets and model artifacts stay under ignored `data/training/`. Nothing is installed into global Python. Setup needs the internet; training and inference load the local model offline after setup.
 
+## Set up a stronger model
+
+Open **Train it → Set up a stronger model**. This is the setup-only milestone requested before a cloud account exists.
+
+1. Use the links to create your own Modal account and configure its provider-side spending limit.
+2. The local connection tools are already installed on this development laptop. On another machine, choose **Set up GPU tools** once; this installs Modal 1.6.3 in a separate environment under ignored `data/gpu/`.
+3. Create a token pair in Modal settings, then choose **Connect Modal account**. Inputs are masked with reveal controls. The check only lists apps; it does not deploy anything or start GPU compute. Verified credentials use Windows user-scoped DPAPI; other platforms keep them in process memory only.
+4. You may choose **Prepare training package** without an account. Review the examples and planning allowance, confirm permission, then download the private ZIP. It freezes the examples, exact model/config and trainer source. It contains no credentials or base weights. Its manifest explicitly says no training or upload has happened.
+
+The first GPU target is [Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507), pinned revision `cdbee75f17c01a7cc42f958dc650907174af0554`, with a Modal L4. The package contains real LoRA optimization, assistant-only loss, saved-adapter reload/comparison and an independent CUDA runner. **The actual L4 job, real provider authentication and larger-model quality are unverified until an account is created and a run is approved.** Own exposes no remote-launch or GPU-result-import endpoint in this setup milestone.
+
+Only teaching examples, job instructions and held-out requests are eligible for a future upload. Expected check answers and reference documents stay local. Files in `local-checks.json` are for local human review. Keep the whole ZIP private. The portable entrypoint checks request/source hashes and separately requires spending, data-transfer and provider-spend-limit acknowledgements.
+
+Planning values are estimates, not hard bill caps. The 2026-11-02 resource snapshot gives about $0.51 for 30 minutes at requested resources; actual compute can vary and startup/preparation/storage/network/taxes can add charges. Provider controls govern the final bill. See [current pricing](https://modal.com/pricing), [resource billing](https://modal.com/docs/guide/resources), [execution timeouts](https://modal.com/docs/guide/timeouts) and [spending limits](https://modal.com/docs/guide/budgets).
+
 ## Full YC scope and the next stages
 
 The system is industry-independent. `PRODUCT.md` records the complete direction and architecture.
@@ -82,7 +97,7 @@ Cloud GPU training, automatic migration, external tool actions, PDF/Word parsing
 
 Data lives in `data/own.sqlite3` beside this README. Back it up with the app stopped, or use the workspace ZIP export for a portable copy. The app binds only to `127.0.0.1`; do not expose it to the internet. Workspaces separate records and retrieval within one owner's app. They are not production authentication or authorization boundaries.
 
-There is no encryption or access control between people using the same Windows account. Use sample or non-sensitive data while production security is developed. No analytics, remote fonts or paid API calls are built in. The app does not execute instructions as tools or send email. Supplied source passages are not automatically verified citations.
+Business datasets are not encrypted, and there is no access control between people using the same Windows account. Saved GPU token pairs use Windows DPAPI; this does not encrypt business files. Use sample or non-sensitive data while production security is developed. No analytics, remote fonts or paid API calls are built in. The app does not execute instructions as tools or send email. Supplied source passages are not automatically verified citations.
 
 Exports include business data; keep them private. Training JSONL excludes held-out checks. Workspace ZIPs contain data/configuration; trained-model ZIPs additionally contain actual adapter weights and a runner. Base weights are obtained separately under the stated license. No export import flow is included yet.
 

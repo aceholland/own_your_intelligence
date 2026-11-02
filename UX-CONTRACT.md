@@ -43,3 +43,8 @@ Files: UTF-8 .txt/.md/.csv, <=1 MB and <=200,000 characters, up to 40 per worksp
 
 ## Accessibility and locale
 Native buttons/links/labels, keyboard focus, skip link, semantic navigation, responsive document scroll, reduced motion and text alternatives. Target WCAG 2.2 AA without claiming certification. English messages; dates rendered through Intl in browser timezone. Native select popup geometry is accepted. Server error messages are plain English. Offline requests retain input and advise reconnect/retry.
+
+## GPU setup variant
+Authority: docs/superpowers/specs/2026-11-02-gpu-setup-design.md and the founder’s explicit setup-first choice. Reuse field/formAction/modalSerial/toast/download owners. Create-account and billing links open the official provider in a new tab. Install runs only local SDK setup; named stages have no fabricated percentage. Connect uses masked token fields with accessible reveal controls and a read-only provider check; errors retain fields, late completions cannot replace a newer modal. Stored Windows tokens use DPAPI and never appear in UI responses/exports.
+
+Preparation is local, scoped and snapshot-bound. It records permission and a planning allowance, not cloud-spend/data-transfer approval. Download follows the explicit private-file preparation action; its label/caption disclose the private content, so there is no second confirmation. Frozen sources/data cannot change on redownload. Early preparations without source snapshots require a fresh package. No remote launch, larger-model selection or import is available before real GPU verification.

@@ -62,3 +62,6 @@ Show real saved counts. Say "Not checked" before checks run. Say "Teaching examp
 
 ## Step 2 training
 The Train it tab extends the teaching desk: three real stages, reviewed lessons → real learning steps → paired before/after answers. Reuse the established panel, field, native dialog, progress, badge and notification owners. Do not expose a GPU console or optimizer form to ordinary users. Technical evidence lives under Training details. No new visual tokens. A completed model gets a human comparison, never an invented accuracy score. At narrow widths, comparison columns stack in before/after reading order; all actions remain reachable.
+
+## Stronger-model setup
+A child of Train it, not another top-level technical dashboard. Three plain-language account steps use the existing panels and numbered stage owner. Setup-only state is explicit. Credentials use shared fields with masking/reveal; estimates always distinguish planning from provider billing. Package preparation and future remote execution have different labels and permissions.

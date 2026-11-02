@@ -1,3 +1,24 @@
+# Step 3 setup verification — 2 November 2026
+
+Scope explicitly chosen by the founder: **no cloud account yet; build setup first**.
+
+- **60 Python tests pass**: existing local training plus GPU scope/consent/staleness, finite planning values, credential redaction, failed-connection preservation, real DPAPI roundtrip, immutable trainer/data packages and explicit launch acknowledgement gates.
+- JavaScript syntax checks pass for app.js, training.js, gpu.js and the GPU browser test.
+- Installed **Modal 1.6.3** only under ignored data/gpu/environment. Verified its real CLI help and constructed its real local App/Function definition without authentication or remote execution. SDK inspection confirmed connection verification calls read-only AppList and automatic single-module mounting excludes adjacent JSON.
+- Actual Windows DPAPI encrypted/decrypted a fictional token pair across vault instances. Tests confirm secrets are absent from status/workspace/model-package exports. No real token pair was available; real authentication remains unverified.
+- Browser: account/setup links, mask/reveal, local token-format rejection with retained input, unchecked permission rejection, invalid allowance rejection, local preparation/download without an account, desktop 1280×900 and mobile 390×844. No page JavaScript errors; mobile document width380 vs viewport390. A delayed successful connection response was intercepted in an isolated browser test to verify replacement-dialog input preservation; this is transport testing, not a successful provider authentication.
+- Smoke-tested the packaged training core entirely offline on the already-installed small SmolLM2 model: one actual optimizer step changed **184,320 weights**, saved/reloaded an adapter, compared an unseen request and retained the frozen job instructions in the result. This is **not** an L4 test or a Qwen3-4B training claim.
+- Caught/fixed real SDK nested-function incompatibility, missing frozen instructions in the portable result, and trainer code changing after package preparation. Immutable package regression observed RED→GREEN.
+- Final downloaded-package source hashes were verified against its manifest. Running its entrypoint without acknowledgement flags failed locally before importing the provider client. Actual app status confirms no connected account and remote training disabled.
+- Design lint completed with exit code 0. Strict premium static audit reports **11 delegated-action button findings**, all `affordance.actionless-button`; its scanner cannot follow the shared data-action dispatcher. No unresolved ownership findings. The audit is not clean; runtime evidence is recorded separately.
+- Independent read-only review found no critical/important issues. Its two minor suggestions were addressed as acceptance evidence: more accurate resource/timeout pricing language and a targeted delayed-connection browser case. The reviewer independently passed 10 isolated setup/package tests.
+
+No cloud image was built, no remote app was deployed, no GPU job or larger-model download was started, no business dataset was uploaded, and no charge was authorized. Actual provider auth, provider-side limit enforcement, CUDA compatibility/performance, GPU model quality, charges and future result import/deployment remain unverified.
+
+The package manifest says training_performed=false/upload_performed=false, pins the exact base and source hashes, and keeps check targets/reference documents out of request.json. Prepared examples, credentials and local models remain outside Git.
+
+## Retained Step 2 evidence
+
 # Step 2 verification — 2 November 2026
 
 ## Current automated evidence

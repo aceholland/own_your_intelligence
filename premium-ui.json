@@ -1,11 +1,34 @@
 {
   "profile": "product-admin",
-  "sourceRoots": ["web"],
+  "sourceRoots": [
+    "web"
+  ],
   "locale": "en",
   "canonicalMap": "UX-CONTRACT.md",
-  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast", "CRUD"],
-  "ownership": {"Select/Listbox": "native"},
-  "requiredCommands": ["unit", "syntax", "trainingSyntax"],
-  "commands": {"unit": "python -m unittest discover -s tests -v", "syntax": "node --check web/app.js", "trainingSyntax": "node --check web/training.js"},
-  "evidence": {"crudFullFlow": "tests/test_api.py", "failurePaths": "tests/test_store.py"}
+  "requiredCapabilities": [
+    "Select/Listbox",
+    "Form",
+    "Scrollbar",
+    "Toast",
+    "CRUD"
+  ],
+  "ownership": {
+    "Select/Listbox": "native"
+  },
+  "requiredCommands": [
+    "unit",
+    "syntax",
+    "trainingSyntax",
+    "gpuSyntax"
+  ],
+  "commands": {
+    "unit": "python -m unittest discover -s tests -v",
+    "syntax": "node --check web/app.js",
+    "trainingSyntax": "node --check web/training.js",
+    "gpuSyntax": "node --check web/gpu.js"
+  },
+  "evidence": {
+    "crudFullFlow": "tests/test_api.py",
+    "failurePaths": "tests/test_store.py"
+  }
 }

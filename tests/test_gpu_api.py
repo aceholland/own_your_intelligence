@@ -32,15 +32,59 @@ class GpuApiTests(unittest.TestCase):
         self.assertLess(response.status_code,300,response.text)
         return response.json()
 
-    def test_setup_capability_never_claims_remote_training_enabled(self):
+    def test_training_capability_is_available_but_an_unconnected_account_is_not_ready(self):
         caps=self.client.get('/api/bootstrap').json()['capabilities']
         self.assertTrue(caps['gpu_setup'])
-        self.assertFalse(caps['cloud_training'])
+        self.assertTrue(caps['cloud_training'])
         status=self.client.get('/api/gpu').json()
         self.assertFalse(status['connected'])
         self.assertFalse(status['remote_training_enabled'])
         self.assertEqual(self.client.post('/api/gpu/setup',json={}).status_code,403)
         self.assertEqual(self.client.post(self.route+'/gpu/launch',json={},headers=self.headers).status_code,404)
+
+    def run_body(self,**changes):
+        body={'dataset_hash':self.client.get(self.route+'/gpu/plan').json()['dataset_hash'],
+              'upload':True,'free_only':True,'zero_limit':True,'credits':True}
+        body.update(changes)
+        return body
+
+    def test_free_only_fields_are_strict_and_no_account_cannot_launch(self):
+        path=self.route+'/gpu/runs'
+        self.assertEqual(self.client.post(path,json=self.run_body()).status_code,403)
+        for value in (False,'true',None):
+            response=self.client.post(path,json=self.run_body(credits=value),headers=self.headers)
+            self.assertGreaterEqual(response.status_code,400)
+        self.assertEqual(self.client.get(path).json(),[])
+
+    def test_scoped_job_progress_cannot_expose_frozen_data_or_secret(self):
+        manager=self.app.state.gpu_jobs
+        run=manager.repo.begin(self.ws,self.job,**self.run_body())
+        self.assertTrue(self.client.get(self.route).json()['gpu_busy'])
+        response=self.client.get(self.route+'/gpu/runs/'+run['id'])
+        self.assertEqual(response.status_code,200)
+        self.assertNotIn('LOCAL_EXPECTED_TARGET',response.text)
+        self.assertNotIn('source_files',response.json())
+        other=self.post('/api/workspaces',{'name':'Other business'})['id']
+        foreign=f'/api/workspaces/{other}/jobs/{self.job}/gpu/runs/{run["id"]}'
+        self.assertEqual(self.client.get(foreign).status_code,404)
+        for suffix in ('/cancel','/review'):
+            body={'check_id':'anything','review':'pass'} if suffix=='/review' else {}
+            self.assertEqual(self.client.post(foreign+suffix,json=body,headers=self.headers).status_code,404)
+        self.assertEqual(self.client.get(foreign+'/export').status_code,404)
+        self.assertEqual(self.client.get(self.route+'/gpu/runs/'+run['id']+'/export').status_code,409)
+        self.assertEqual(self.client.post('/api/gpu/disconnect',json={},headers=self.headers).status_code,409)
+        with patch.object(self.app.state.gpu,'connect') as connect:
+            response=self.client.post('/api/gpu/connection',json={'token_id':'ak-test','token_secret':'as-test'},headers=self.headers)
+            self.assertEqual(response.status_code,409)
+            connect.assert_not_called()
+        manager.repo.update(self.ws,self.job,run['id'],status='failed')
+
+    def test_new_job_uses_the_real_manager_and_all_approval_fields(self):
+        manager=self.app.state.gpu_jobs
+        with patch.object(manager,'start',return_value={'id':'test-run','status':'queued'}) as start:
+            response=self.client.post(self.route+'/gpu/runs',json=self.run_body(),headers=self.headers)
+        self.assertEqual(response.status_code,202)
+        start.assert_called_once_with(self.ws,self.job,**self.run_body())
 
     def test_preparation_and_download_need_no_account_and_do_not_run_compute(self):
         plan=self.client.get(self.route+'/gpu/plan').json()

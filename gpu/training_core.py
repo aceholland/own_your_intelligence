@@ -39,7 +39,7 @@ def generate(model, tokenizer, messages, device, limit):
     return answer
 
 
-def train(payload, base_dir=None, device='cuda'):
+def train(payload, base_dir=None, device='cuda', progress=None):
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from peft import LoraConfig, PeftModel, get_peft_model, TaskType
@@ -49,7 +49,11 @@ def train(payload, base_dir=None, device='cuda'):
     if device == 'cpu':
         torch.set_num_threads(4)
     config, base = payload['config'], payload['base']
+    def report(phase, **fields):
+        if progress:
+            progress(phase=phase, **fields)
     if base_dir is None:
+        report('Downloading the public model')
         from huggingface_hub import snapshot_download
         base_dir = Path(snapshot_download(base['id'], revision=base['revision'], token=False,
             allow_patterns=['*.json','*.safetensors','*.txt','*.jinja','LICENSE','README.md']))
@@ -58,6 +62,7 @@ def train(payload, base_dir=None, device='cuda'):
                 if hashlib.file_digest(source,'sha256').hexdigest() != expected:
                     raise ValueError('The public model download did not match the pinned base.')
     dtype = torch.bfloat16 if device == 'cuda' else torch.float32
+    report('Loading the model')
     def load():
         return AutoModelForCausalLM.from_pretrained(base_dir, local_files_only=True, trust_remote_code=False,
             use_safetensors=True, dtype=dtype, low_cpu_mem_usage=True).to(device)
@@ -75,6 +80,7 @@ def train(payload, base_dir=None, device='cuda'):
     rng = random.Random(config['seed'])
     losses = []
     model.train()
+    report('Learning your examples',step=0,total_steps=len(rows)*config['epochs'])
     for _ in range(config['epochs']):
         rng.shuffle(order)
         for index in order:
@@ -89,10 +95,12 @@ def train(payload, base_dir=None, device='cuda'):
             torch.nn.utils.clip_grad_norm_(parameters.values(),1.)
             optimizer.step()
             losses.append(float(loss.detach().cpu()))
+            report('Learning your examples',step=len(losses),total_steps=len(rows)*config['epochs'],loss=losses[-1])
     changed = sum(torch.count_nonzero(p.detach().cpu()!=original[n]).item() for n,p in parameters.items())
     if not changed or any(not torch.isfinite(p).all() for p in parameters.values()):
         raise ValueError('No valid changed model weights were produced.')
     with tempfile.TemporaryDirectory() as scratch:
+        report('Saving the trained model',step=len(losses),total_steps=len(rows)*config['epochs'])
         adapter = Path(scratch)/'adapter'
         model.peft_config['default'].base_model_name_or_path = base['id']
         model.peft_config['default'].revision = base['revision']
@@ -105,6 +113,7 @@ def train(payload, base_dir=None, device='cuda'):
         model = PeftModel.from_pretrained(load(),adapter,local_files_only=True,is_trainable=False)
         model.config.use_cache = True
         results = []
+        report('Comparing answers',step=len(losses),total_steps=len(rows)*config['epochs'])
         for check in payload['checks']:
             messages = messages_for(payload,check['input'])
             result = dict(check_id=check['id'],input=check['input'],before='',before_error=None,after='',error=None,review='pending')
@@ -121,6 +130,7 @@ def train(payload, base_dir=None, device='cuda'):
         hashes = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in adapter.iterdir() if p.is_file()}
         summary = {'format':'own-gpu-result-v1','training_performed':True,'base_weights_included':False,
             'base':base,'config':config,'job':payload['job'],'dataset_hash':payload['dataset_hash'],'steps':len(losses),
+            'request_hash':hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
             'first_loss':losses[0],'last_loss':losses[-1],'changed_parameters':changed,'artifacts':hashes,'results':results}
         output = io.BytesIO()
         with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:

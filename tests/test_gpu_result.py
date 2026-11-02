@@ -12,8 +12,8 @@ from own.training_data import digest
 from own.gpu_result import validate_result
 
 
-def fixture(manifest_changes=None,extra=None,tensor_value=.125):
-    payload={'base':GPU_BASE,'config':GPU_CONFIG,'dataset_hash':'frozen-dataset','job':{'goal':'Reply','instructions':'Be concise'},
+def fixture(manifest_changes=None,extra=None,tensor_value=.125,payload=None):
+    payload=payload or {'base':GPU_BASE,'config':GPU_CONFIG,'dataset_hash':'frozen-dataset','job':{'goal':'Reply','instructions':'Be concise'},
              'training_rows':[{'messages':[]} for _ in range(3)],'checks':[{'id':'check1','input':'New request'}]}
     config={'peft_type':'LORA','task_type':'CAUSAL_LM','base_model_name_or_path':GPU_BASE['id'],'revision':GPU_BASE['revision'],
             'r':GPU_CONFIG['rank'],'lora_alpha':GPU_CONFIG['alpha'],'target_modules':GPU_CONFIG['target_modules'],'bias':'none'}
@@ -26,9 +26,9 @@ def fixture(manifest_changes=None,extra=None,tensor_value=.125):
     weights=struct.pack('<Q',len(encoded))+encoded+struct.pack('<32f',*[tensor_value]*32)
     files={'adapter_model.safetensors':weights,'adapter_config.json':json.dumps(config).encode()}
     manifest={'format':'own-gpu-result-v1','training_performed':True,'base_weights_included':False,'base':GPU_BASE,'config':GPU_CONFIG,
-        'job':payload['job'],'dataset_hash':payload['dataset_hash'],'request_hash':digest(payload),'steps':9,'changed_parameters':16,
+        'job':payload['job'],'dataset_hash':payload['dataset_hash'],'request_hash':digest(payload),'steps':len(payload['training_rows'])*GPU_CONFIG['epochs'],'changed_parameters':16,
         'first_loss':2.,'last_loss':1.,'artifacts':{n:hashlib.sha256(v).hexdigest() for n,v in files.items()},
-        'results':[dict(check_id='check1',input='New request',before='Before',before_error=None,after='After',error=None,review='pass')]}
+        'results':[dict(check_id=c['id'],input=c['input'],before='Before',before_error=None,after='After',error=None,review='pass') for c in payload['checks']]}
     if manifest_changes:manifest.update(manifest_changes)
     output=io.BytesIO()
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
@@ -66,6 +66,23 @@ class GpuResultTests(unittest.TestCase):
 
     def test_size_limits_reject_before_parsing(self):
         with self.assertRaises(Problem):validate_result(b'x'*(65*1024*1024),{})
+
+    def test_wrong_json_structure_never_escapes_as_an_internal_error(self):
+        for filename in ('adapter/adapter_config.json','adapter/adapter_model.safetensors'):
+            data,payload=fixture()
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                files={name:archive.read(name) for name in archive.namelist()}
+            if filename.endswith('.json'):files[filename]=b'[]'
+            else:
+                header=b'[]      '
+                files[filename]=struct.pack('<Q',len(header))+header+b'not weights'
+            manifest=json.loads(files['manifest.json'])
+            manifest['artifacts'][filename[8:]]=hashlib.sha256(files[filename]).hexdigest()
+            files['manifest.json']=json.dumps(manifest).encode()
+            output=io.BytesIO()
+            with zipfile.ZipFile(output,'w') as archive:
+                for name,value in files.items():archive.writestr(name,value)
+            with self.assertRaises(Problem):validate_result(output.getvalue(),payload)
 
 
 if __name__=='__main__':unittest.main()

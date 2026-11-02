@@ -1,4 +1,4 @@
-"""Setup-only GPU integration. No compute launch or business-data upload endpoint."""
+"""GPU connection tools, rate planning and immutable training packages."""
 import io
 import hashlib
 import json
@@ -45,10 +45,12 @@ class GpuSetup:
         if isinstance(budget, bool) or not isinstance(budget, (int, float)) or not math.isfinite(budget) or not .5 <= budget <= 25:
             raise Problem('Choose a planning allowance from $0.50 to $25 USD.')
         rate = PRICE['gpu_per_second'] + PRICE['cpu_cores'] * PRICE['cpu_core_per_second'] + PRICE['memory_gib'] * PRICE['memory_gib_per_second']
+        rate *= 1.15  # Modal's broad US execution-region multiplier, checked 2026-11-02.
         seconds = min(1800, math.floor((budget - .25) / rate))
         return {'planning_allowance_usd': budget, 'timeout_seconds': seconds,
             'estimated_compute_usd': round(seconds * rate, 2), 'setup_allowance_usd': .25,
             'preparation_cost_usd': 0, 'hard_invoice_cap': False, 'rates': PRICE,
+            'region': 'us', 'region_multiplier': 1.15,
             'excludes': 'Image preparation, storage, network charges and taxes; actual charges follow Modal billing.',
             'spend_limit_url': 'https://modal.com/docs/guide/budgets'}
 
@@ -72,7 +74,7 @@ class GpuSetup:
             connected, connection_error = False, str(error)
         return {'provider': 'Modal', 'sdk': setup, 'connected': connected, 'connection_error': connection_error,
                 'credential_storage': 'Windows user protection' if os.name == 'nt' else 'This session only',
-                'remote_training_enabled': False, 'business_data_uploaded': False, 'base': GPU_BASE}
+                'remote_training_enabled': connected and self.sdk_ready(), 'base': GPU_BASE}
 
     def install(self):
         with self.setup_lock:
@@ -119,7 +121,7 @@ class GpuSetup:
     def plan(self, ws, job):
         plan = self.repo.prepare(ws, job)
         return dict(plan, base=GPU_BASE, config=GPU_CONFIG, provider='Modal', quote=self.quote(2.0),
-                    packages=self.packages(ws, job), training_enabled=False)
+                    packages=self.packages(ws, job), training_enabled=True)
 
     @atomic
     def packages(self, ws, job):

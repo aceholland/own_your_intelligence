@@ -19,25 +19,33 @@ def validate_request(payload, manifest, approve_spend, approve_upload, spend_lim
     quote = payload['quote']
     if not 300 <= quote['timeout_seconds'] <= 1800 or quote['hard_invoice_cap'] is not False:
         raise ValueError('The planning quote is invalid. Prepare again in Own.')
+    if quote.get('region') != 'us' or quote.get('region_multiplier') != 1.15:
+        raise ValueError('This launcher requires the disclosed US execution region. Prepare a fresh package.')
     if not payload['training_rows'] or not payload['checks']:
         raise ValueError('Teaching examples and separate checks are required.')
     if any('output' in c or 'expected' in c for c in payload['checks']):
         raise ValueError('Expected check answers must remain local.')
 
 
-def gpu_train(payload):
+def gpu_train(payload, progress_queue=None):
     from training_core import train
-    return train(payload)
+    def progress(**event):
+        if progress_queue is not None:
+            try:
+                progress_queue.put(event, block=False)
+            except Exception:
+                pass
+    return train(payload, progress=progress)
 
 
-def build_app(timeout_seconds=1800):
+def build_app(timeout_seconds=1800, run_name='own-business-gpu-training'):
     import modal
     image = modal.Image.debian_slim(python_version='3.11').pip_install(
         'torch==2.9.1','transformers==4.57.6','peft==0.18.1','accelerate==1.12.0',
         'huggingface-hub==0.36.0','safetensors==0.7.0').add_local_file(
             Path(__file__).with_name('training_core.py'),'/root/training_core.py')
-    app = modal.App('own-business-gpu-training')
-    learn=app.function(image=image,gpu='L4',cpu=2,memory=16384,timeout=timeout_seconds,
+    app = modal.App(run_name)
+    learn=app.function(image=image,gpu='L4',cpu=2,memory=16384,timeout=timeout_seconds,startup_timeout=300,region='us',
                        retries=0,max_containers=1,scaledown_window=2)(gpu_train)
     return app,learn
 

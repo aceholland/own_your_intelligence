@@ -80,7 +80,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         bootstrap = self.client.get('/api/bootstrap').json()
         self.assertTrue(bootstrap['capabilities']['weight_training'])
-        self.assertFalse(bootstrap['capabilities']['cloud_training'])
+        self.assertTrue(bootstrap['capabilities']['cloud_training'])
 
     def test_malformed_request_reports_actionable_error(self):
         response = self.client.post('/api/workspaces', json={'name': ''}, headers=self.headers)

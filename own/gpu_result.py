@@ -7,6 +7,7 @@ import re
 import stat
 import struct
 import zipfile
+import zlib
 
 from .store import Problem
 from .training_data import digest
@@ -36,6 +37,8 @@ def _weights(data, config):
     if not 2 <= size <= min(4 * 1024 * 1024, len(data) - 8):
         raise ValueError('Invalid weight header')
     header = _json(data[8:8 + size])
+    if not isinstance(header, dict):
+        raise ValueError('Invalid weight header structure')
     values = memoryview(data)[8 + size:]
     offset = count = 0
     nonzero = False
@@ -115,6 +118,8 @@ def validate_result(data, payload):
         if any(type(manifest[key]) not in (int, float) or not math.isfinite(manifest[key]) or manifest[key] < 0 for key in ('first_loss', 'last_loss')):
             raise ValueError('Invalid training measurements')
         adapter = _json(files['adapter_config.json'])
+        if not isinstance(adapter, dict):
+            raise ValueError('Invalid adapter configuration structure')
         expected = {'peft_type': 'LORA', 'task_type': 'CAUSAL_LM', 'base_model_name_or_path': payload['base']['id'],
             'revision': payload['base']['revision'], 'r': payload['config']['rank'], 'lora_alpha': payload['config']['alpha'], 'bias': 'none'}
         if any(adapter.get(key) != value for key, value in expected.items()) or set(adapter['target_modules']) != set(payload['config']['target_modules']):
@@ -142,5 +147,5 @@ def validate_result(data, payload):
         clean_manifest = {key: manifest[key] for key in ('format', 'training_performed', 'base_weights_included', 'base',
             'config', 'job', 'dataset_hash', 'request_hash', 'steps', 'changed_parameters', 'first_loss', 'last_loss', 'artifacts')}
         return dict(clean_manifest, results=sanitized), files
-    except (ValueError, TypeError, KeyError, IndexError, UnicodeError, OverflowError, struct.error, zipfile.BadZipFile, RuntimeError, NotImplementedError) as error:
+    except (ValueError, TypeError, KeyError, IndexError, UnicodeError, OverflowError, struct.error, zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError, EOFError, zlib.error) as error:
         raise Problem('The GPU result could not be verified. No model was imported. Keep the job details and try again after checking the provider run.', 422) from error

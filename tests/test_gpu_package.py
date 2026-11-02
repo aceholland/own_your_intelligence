@@ -39,6 +39,31 @@ class GpuPackageTests(unittest.TestCase):
         self.assertTrue(callable(getattr(launcher,'gpu_train',None)))
         self.assertNotIn('<locals>',launcher.gpu_train.__qualname__)
 
+    def test_fixed_execution_region_is_part_of_the_quote(self):
+        quote=GpuSetup.quote(2.)
+        self.assertEqual(quote['region'],'us')
+        self.assertEqual(quote['region_multiplier'],1.15)
+        payload=self.payload()
+        payload['quote']['region']='anywhere'
+        with self.assertRaises(ValueError):
+            launcher.validate_request(payload,{'request_hash':digest(payload)},True,True,True)
+
+    def test_remote_progress_is_sent_without_expected_answers(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        from queue import Queue
+        queue=Queue()
+        seen=[]
+        def train(payload,progress=None):
+            seen.append(payload)
+            progress(phase='Learning your examples',step=1,total_steps=3,loss=1.5)
+            return b'adapter'
+        with patch.dict('sys.modules',{'training_core':SimpleNamespace(train=train)}):
+            result=launcher.gpu_train({'teaching':'only'},queue)
+        self.assertEqual(result,b'adapter')
+        self.assertEqual(queue.get_nowait()['step'],1)
+        self.assertEqual(seen,[{'teaching':'only'}])
+
 
 if __name__=='__main__':
     unittest.main()

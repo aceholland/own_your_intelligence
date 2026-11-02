@@ -16,6 +16,8 @@ from .retrieval import build_messages
 from .store import Problem, Store, text
 from .training_runtime import TrainingManager
 from .gpu_setup import GpuSetup
+from .gpu_jobs import ACTIVE as GPU_ACTIVE
+from .gpu_runtime import GpuJobManager
 
 
 class Body(BaseModel):
@@ -67,6 +69,14 @@ class GpuPackageBody(TrainBody):
     budget_usd: float
 
 
+class GpuRunBody(Body):
+    dataset_hash: str
+    upload: bool
+    free_only: bool
+    zero_limit: bool
+    credits: bool
+
+
 class TryBody(Body):
     input: str
     mode: str = 'draft'
@@ -93,11 +103,13 @@ def create_app(data_dir, engine=None):
     inference_lock = threading.Lock()
     training = TrainingManager(store, data_dir, inference_lock)
     gpu = GpuSetup(store, data_dir)
+    gpu_jobs = GpuJobManager(store, gpu)
     web = Path(__file__).resolve().parent.parent / 'web'
 
     @asynccontextmanager
     async def lifespan(app):
         yield
+        gpu_jobs.close()
         gpu.close()
         training.close()
         store.close()
@@ -106,6 +118,7 @@ def create_app(data_dir, engine=None):
     app.state.store = store
     app.state.training = training
     app.state.gpu = gpu
+    app.state.gpu_jobs = gpu_jobs
 
     @app.middleware('http')
     async def local_boundary(request: Request, call_next):
@@ -163,11 +176,15 @@ def create_app(data_dir, engine=None):
     def bootstrap():
         return {'csrf_token': token, 'workspaces': store.list_workspaces(),
                 'capabilities': {'local_inference': True, 'weight_training': True, 'model_weights_export': True,
-                                 'base_weights_export': False, 'cloud_training': False, 'gpu_setup': True, 'multi_user_auth': False}}
+                                 'base_weights_export': False, 'cloud_training': True, 'gpu_setup': True, 'multi_user_auth': False}}
 
     @app.get('/api/gpu')
     def gpu_status():
-        return gpu.status()
+        with store.lock:
+            runs = store._list('gpu_run')
+        return dict(gpu.status(), busy=any(run['status'] in GPU_ACTIVE for run in runs),
+                    business_data_uploaded=any(bool(run.get('call_id')) for run in runs),
+                    billing_verified=False, billing_source='Owner confirmation required for each run')
 
     @app.post('/api/gpu/setup')
     def setup_gpu():
@@ -175,11 +192,17 @@ def create_app(data_dir, engine=None):
 
     @app.post('/api/gpu/connection')
     def connect_gpu(body: GpuConnectionBody):
-        return gpu.connect(body.token_id, body.token_secret)
+        with gpu_jobs.lock, store.lock:
+            if any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')):
+                raise Problem('Stop the active cloud job before changing its saved connection.', 409)
+            return gpu.connect(body.token_id, body.token_secret)
 
     @app.post('/api/gpu/disconnect')
     def disconnect_gpu():
-        return gpu.disconnect()
+        with gpu_jobs.lock, store.lock:
+            if any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')):
+                raise Problem('Stop the active cloud job before forgetting its connection.', 409)
+            return gpu.disconnect()
 
     @app.get('/api/training/runtime')
     def training_status():
@@ -207,8 +230,35 @@ def create_app(data_dir, engine=None):
 
     @app.get('/api/workspaces/{ws}/jobs/{job}')
     def get_job(ws: str, job: str):
-        return dict(store.job(ws, job), trainings=training.repo.list(ws, job), training_plan=training.repo.prepare(ws, job),
-                    gpu_plan=gpu.plan(ws, job))
+        with store.lock:
+            return dict(store.job(ws, job), trainings=training.repo.list(ws, job), training_plan=training.repo.prepare(ws, job),
+                gpu_plan=gpu.plan(ws, job), gpu_runs=gpu_jobs.repo.list(ws, job),
+                gpu_busy=any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')))
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/gpu/runs')
+    def list_gpu_jobs(ws: str, job: str):
+        return gpu_jobs.repo.list(ws, job)
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/gpu/runs', status_code=202)
+    def start_gpu_job(ws: str, job: str, body: GpuRunBody):
+        return gpu_jobs.start(ws, job, **body.model_dump())
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/gpu/runs/{run_id}')
+    def get_gpu_job(ws: str, job: str, run_id: str):
+        return gpu_jobs.repo.summary(gpu_jobs.repo.get(ws, job, run_id))
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/gpu/runs/{run_id}/cancel')
+    def stop_gpu_job(ws: str, job: str, run_id: str):
+        return gpu_jobs.cancel(ws, job, run_id)
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/gpu/runs/{run_id}/review')
+    def review_gpu_job(ws: str, job: str, run_id: str, body: ReviewBody):
+        return gpu_jobs.repo.summary(gpu_jobs.repo.review(ws, job, run_id, body.check_id, body.review))
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/gpu/runs/{run_id}/export')
+    def export_gpu_job(ws: str, job: str, run_id: str):
+        return Response(gpu_jobs.export(ws, job, run_id), media_type='application/zip',
+                        headers={'Content-Disposition': 'attachment; filename="own-gpu-trained-model.zip"'})
 
     @app.get('/api/workspaces/{ws}/jobs/{job}/gpu/plan')
     def gpu_plan(ws: str, job: str):

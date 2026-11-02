@@ -24,7 +24,7 @@ class GpuJobRepository:
             raise Problem('A GPU job is still active or its stop is unconfirmed. Finish or stop it before starting another.', 409)
         package = self.setup.prepare(ws, job, dataset_hash, 2.0, True)
         frozen = self.store._get('gpu_package', package['id'], ws, job)
-        return self.store._new('gpu_run', ws, job, workspace_id=ws, job_id=job,
+        run = self.store._new('gpu_run', ws, job, workspace_id=ws, job_id=job,
             payload=frozen['payload'], checks=frozen['checks'], source_files=frozen['source_files'],
             source_hashes=frozen['source_hashes'], package_id=package['id'], request_hash=frozen['request_hash'],
             dataset_hash=dataset_hash, base=frozen['base'], quote=frozen['quote'],
@@ -34,6 +34,7 @@ class GpuJobRepository:
             total_steps=len(frozen['payload']['training_rows']) * frozen['payload']['config']['epochs'],
             results=[], error=None, app_id=None, call_id=None, provider_stop_confirmed=False,
             training_performed=False, download_available=False)
+        return self.update(ws, job, run['id'], provider_app_name='own-training-' + run['id'])
 
     @atomic
     def get(self, ws, job, run_id):

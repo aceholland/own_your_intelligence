@@ -15,6 +15,7 @@ from .engine import OllamaEngine
 from .retrieval import build_messages
 from .store import Problem, Store, text
 from .training_runtime import TrainingManager
+from .gpu_setup import GpuSetup
 
 
 class Body(BaseModel):
@@ -57,6 +58,15 @@ class TrainBody(Body):
     permission: bool
 
 
+class GpuConnectionBody(Body):
+    token_id: str
+    token_secret: str
+
+
+class GpuPackageBody(TrainBody):
+    budget_usd: float
+
+
 class TryBody(Body):
     input: str
     mode: str = 'draft'
@@ -82,17 +92,20 @@ def create_app(data_dir, engine=None):
     token = secrets.token_urlsafe(32)
     inference_lock = threading.Lock()
     training = TrainingManager(store, data_dir, inference_lock)
+    gpu = GpuSetup(store, data_dir)
     web = Path(__file__).resolve().parent.parent / 'web'
 
     @asynccontextmanager
     async def lifespan(app):
         yield
+        gpu.close()
         training.close()
         store.close()
 
     app = FastAPI(title='Own local workbench', docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.store = store
     app.state.training = training
+    app.state.gpu = gpu
 
     @app.middleware('http')
     async def local_boundary(request: Request, call_next):
@@ -150,7 +163,23 @@ def create_app(data_dir, engine=None):
     def bootstrap():
         return {'csrf_token': token, 'workspaces': store.list_workspaces(),
                 'capabilities': {'local_inference': True, 'weight_training': True, 'model_weights_export': True,
-                                 'base_weights_export': False, 'cloud_training': False, 'multi_user_auth': False}}
+                                 'base_weights_export': False, 'cloud_training': False, 'gpu_setup': True, 'multi_user_auth': False}}
+
+    @app.get('/api/gpu')
+    def gpu_status():
+        return gpu.status()
+
+    @app.post('/api/gpu/setup')
+    def setup_gpu():
+        return gpu.install()
+
+    @app.post('/api/gpu/connection')
+    def connect_gpu(body: GpuConnectionBody):
+        return gpu.connect(body.token_id, body.token_secret)
+
+    @app.post('/api/gpu/disconnect')
+    def disconnect_gpu():
+        return gpu.disconnect()
 
     @app.get('/api/training/runtime')
     def training_status():
@@ -178,7 +207,21 @@ def create_app(data_dir, engine=None):
 
     @app.get('/api/workspaces/{ws}/jobs/{job}')
     def get_job(ws: str, job: str):
-        return dict(store.job(ws, job), trainings=training.repo.list(ws, job), training_plan=training.repo.prepare(ws, job))
+        return dict(store.job(ws, job), trainings=training.repo.list(ws, job), training_plan=training.repo.prepare(ws, job),
+                    gpu_plan=gpu.plan(ws, job))
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/gpu/plan')
+    def gpu_plan(ws: str, job: str):
+        return gpu.plan(ws, job)
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/gpu/packages')
+    def prepare_gpu_package(ws: str, job: str, body: GpuPackageBody):
+        return gpu.prepare(ws, job, body.dataset_hash, body.budget_usd, body.permission)
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/gpu/packages/{package_id}/export')
+    def export_gpu_package(ws: str, job: str, package_id: str):
+        return Response(gpu.export(ws, job, package_id), media_type='application/zip',
+                        headers={'Content-Disposition': 'attachment; filename="own-gpu-training-setup.zip"'})
 
     @app.patch('/api/workspaces/{ws}/jobs/{job}')
     def edit_job(ws: str, job: str, body: EditBody):
@@ -324,7 +367,7 @@ def create_app(data_dir, engine=None):
 
     @app.get('/{asset}')
     def asset(asset: str):
-        if asset not in ('app.js', 'training.js', 'styles.css', 'mark.svg'):
+        if asset not in ('app.js', 'training.js', 'gpu.js', 'styles.css', 'mark.svg'):
             return JSONResponse({'error': 'Page not found. Open the app home page.'}, status_code=404)
         return FileResponse(web / asset)
 

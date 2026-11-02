@@ -1,4 +1,5 @@
 import {createTrainingUI} from './training.js';
+import {createGpuUI} from './gpu.js';
 const $ = (selector, root = document) => root.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[character]));
 const paths = {
@@ -67,7 +68,7 @@ const errorArea = () => '<div class="error-box form-errors" role="alert"></div>'
 function field(name, label, value='', {type='text', help='', required=true, max=4000, short=false}={}) {
   const id = `field-${name}`;
   const attrs = `id="${id}" name="${name}" ${required ? 'required' : ''} maxlength="${max}" aria-describedby="${id}-help ${id}-error"`;
-  const control = type === 'textarea' ? `<textarea ${attrs} class="${short ? 'short' : ''}" rows="4">${esc(value)}</textarea>` : `<input ${attrs} type="${type}" value="${esc(value)}" autocomplete="off">`;
+  const control = type === 'textarea' ? `<textarea ${attrs} class="${short ? 'short' : ''}" rows="4">${esc(value)}</textarea>` : `<input ${attrs} type="${type}" value="${esc(value)}" autocomplete="${type==='password'?'new-password':'off'}">`;
   return `<div class="field"><label for="${id}">${esc(label)}</label>${control}<small id="${id}-help">${esc(help)}</small><div class="form-error" id="${id}-error"></div></div>`;
 }
 function empty(title, description, action='', label='', glyph='spark') {
@@ -114,7 +115,7 @@ function home(jobsOnly=false) {
 
 function jobShell(content) {
   const j = state.job;
-  return `<a class="back-link" href="${route('jobs')}">${icon('back',15)}Your jobs</a><div class="page-heading job-heading"><div><h1>${esc(j.name)}</h1><p class="lede">${esc(j.goal)}</p></div><div class="job-status">${badge(j.active_version_id?'Approved version available':'Working draft',j.active_version_id?'good':'')}</div></div><nav class="tabbar" aria-label="Job steps">${[['teach','Teach it'],['train','Train it'],['try','Try it'],['check','Check it'],['versions','Versions']].map(([view,label],i)=>`<a class="tab-link ${state.view===view?'active':''}" href="${route(view,j.id)}" ${state.view===view?'aria-current="page"':''}><span class="tab-index">0${i+1}</span>${label}</a>`).join('')}</nav>${content}`;
+  return `<a class="back-link" href="${route('jobs')}">${icon('back',15)}Your jobs</a><div class="page-heading job-heading"><div><h1>${esc(j.name)}</h1><p class="lede">${esc(j.goal)}</p></div><div class="job-status">${badge(j.active_version_id?'Approved version available':'Working draft',j.active_version_id?'good':'')}</div></div><nav class="tabbar" aria-label="Job steps">${[['teach','Teach it'],['train','Train it'],['try','Try it'],['check','Check it'],['versions','Versions']].map(([view,label],i)=>`<a class="tab-link ${state.view===view||(view==='train'&&state.view==='gpu')?'active':''}" href="${route(view,j.id)}" ${state.view===view?'aria-current="page"':''}><span class="tab-index">0${i+1}</span>${label}</a>`).join('')}</nav>${content}`;
 }
 
 function teach() {
@@ -167,22 +168,23 @@ async function loadRoute() {
     const workspace=await api(`/api/workspaces/${workspaceId}`);
     const job=jobId?await api(`/api/workspaces/${workspaceId}/jobs/${jobId}`):null;
     const trainingRuntime=job?await api('/api/training/runtime'):null;
+    const gpuStatus=job&&view==='gpu'?await api('/api/gpu'):null;
     if(id!==state.serial)return;
     const changedRoute=state.route!==location.hash;
-    state.workspace=workspace;state.job=job;state.trainingRuntime=trainingRuntime;state.view=view;state.route=location.hash;state.dirty=false;
+    state.workspace=workspace;state.job=job;state.trainingRuntime=trainingRuntime;if(gpuStatus)state.gpuStatus=gpuStatus;state.view=view;state.route=location.hash;state.dirty=false;
     renderRail();renderView();
     if(changedRoute){window.scrollTo({top:0});main.focus({preventScroll:true});}
-    if(job&&(job.evaluations[0]?.status==='running'||job.trainings.some(trainingUI.active)||trainingRuntime.status==='installing'||trainingRuntime.busy))pollChecks();
+    if(job&&(job.evaluations[0]?.status==='running'||job.trainings.some(trainingUI.active)||trainingRuntime.status==='installing'||trainingRuntime.busy||gpuStatus?.sdk.status==='installing'))pollChecks();
   } catch(error) {
     if(id!==state.serial)return;
     main.innerHTML=`<div class="panel">${empty('We couldn’t open this workspace.',error.message)}<a class="button secondary" href="#home">Back to your workspace</a></div>`;
   } finally {if(id===state.serial)state.loading=false;}
 }
 function renderView() {
-  const titles={teach:'Teach it',train:'Train it',try:'Try it',check:'Check it',versions:'Versions',library:'Business knowledge',jobs:'Your jobs',home:'Overview'};
+  const titles={teach:'Teach it',train:'Train it',gpu:'Stronger model setup',try:'Try it',check:'Check it',versions:'Versions',library:'Business knowledge',jobs:'Your jobs',home:'Overview'};
   $('#breadcrumb').textContent=`${state.workspace.name} / ${state.job ? state.job.name : titles[state.view]||'Overview'}`;
   if(state.job)document.title=`${titles[state.view]||'Job'} · ${state.job.name} — Own`;
-  const render=state.job?{teach,train:trainingUI.render,try:tryView,check:checkView,versions:versionsView}[state.view]:{home,jobs:()=>home(true),library}[state.view];
+  const render=state.job?{teach,train:trainingUI.render,gpu:gpuUI.render,try:tryView,check:checkView,versions:versionsView}[state.view]:{home,jobs:()=>home(true),library}[state.view];
   main.innerHTML=render?render():`<div class="panel">${empty('This page isn’t here.','Use the workspace navigation to continue.')}<a class="button secondary" href="${route()}">Back to overview</a></div>`;
 }
 function go(hash) {if(location.hash===hash)loadRoute();else location.hash=hash;}
@@ -208,9 +210,10 @@ function pollChecks() {
       const runtime=await api('/api/training/runtime');
       if(serial!==state.serial)return;
       state.trainingRuntime=runtime;
-      const updated=await refreshJob({render:!state.dirty&&['train','check','versions'].includes(state.view)});
+      if(state.gpuStatus?.sdk.status==='installing'){const gpu=await api('/api/gpu');if(serial!==state.serial)return;state.gpuStatus=gpu;}
+      const updated=await refreshJob({render:!state.dirty&&['train','gpu','check','versions'].includes(state.view)});
       if(!updated)return;
-      if(state.job.evaluations[0]?.status==='running'||state.job.trainings.some(trainingUI.active)||runtime.status==='installing'||runtime.busy)pollChecks();
+      if(state.job.evaluations[0]?.status==='running'||state.job.trainings.some(trainingUI.active)||runtime.status==='installing'||runtime.busy||state.gpuStatus?.sdk.status==='installing')pollChecks();
       else notify('Your local AI has finished working. Review the results.');
     } catch(error){notify(error.message,true);}
   },2000);
@@ -261,6 +264,7 @@ document.addEventListener('submit',event=>{
   const stillHere=()=>origin.serial===state.serial&&origin.workspace===state.workspace?.id&&origin.job===state.job?.id&&
     (origin.modal===null||(modal.open&&origin.modal===modalSerial));
   formAction(form,async data=>{
+    if(await gpuUI.submit(type,form,data,jobPath,stillHere))return;
     if(await trainingUI.submit(type,form,data,jobPath,stillHere))return;
     if(type==='workspace'){
       const workspace=await api('/api/workspaces',{method:'POST',body:data});
@@ -360,6 +364,7 @@ document.addEventListener('click',async event=>{
     notify('Save your instructions first.',true);return;
   }
   try{
+    if(await gpuUI.handle(action,target))return;
     if(await trainingUI.handle(action,target))return;
     if(action==='close-modal')closeModal();
     else if(action==='confirm-modal'){
@@ -397,7 +402,7 @@ document.addEventListener('click',async event=>{
     else if(action==='sample')await makeSample(target);
   }catch(error){
     target.disabled=false;notify(error.message,true);
-    const area=modal.open?$('.form-errors',modal):$('#training-action-error .error-box')||$('#check-action-error .error-box');
+    const area=modal.open?$('.form-errors',modal):$('#gpu-action-error .error-box')||$('#training-action-error .error-box')||$('#check-action-error .error-box');
     if(area)area.textContent=error.message;
   }
 });
@@ -410,6 +415,7 @@ async function start() {
     await loadRoute();
   }catch(error){main.innerHTML=`<div class="panel">${empty('Open your local workspace.',error.message)}<button class="button secondary" data-action="reload">Try connecting again</button></div>`;}
 }
+const gpuUI=createGpuUI({state,api,esc,icon,badge,button,field,errorArea,formatDate,jobShell,jobBase,route,openModal,closeModal,notify,refreshJob,poll:pollChecks,download:downloadFile});
 const trainingUI=createTrainingUI({state,api,esc,icon,badge,button,field,errorArea,formatDate,jobShell,jobBase,route,openModal,closeModal,notify,refreshJob,poll:pollChecks,confirmAction,download:downloadFile});
 document.addEventListener('click',event=>{if(event.target.closest('[data-action="reload"]'))location.reload();});
 await start();

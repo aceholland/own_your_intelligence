@@ -1,0 +1,20 @@
+# First GPU training workflow
+
+The founder asked for the next step after connecting Modal, then explicitly required **free credits only, no out-of-pocket charges**. Implement the real supervised training workflow, result validation, human comparison and portable result download. Do not start a remote run until the owner confirms the provider's $0 out-of-pocket spend limit and available credits. The SDK exposes current usage but not those two controls; zero historical usage is not proof of a zero future charge limit. All work before launch remains local/read-only.
+
+Keep the existing small local model, approved versions and training flow working. The first run uses fictional shop examples, a frozen Qwen3-4B-Instruct-2507 base and one Modal L4 in the US. A fixed region is disclosed and included in the estimate. Expected check answers/reference documents remain local. The owner separately confirms data transfer, free-only execution, provider zero-charge limit and available credits in the training dialog. These are owner attestations, never labeled automatic verification.
+
+## Architecture and flow
+
+- Extend GPU setup with Train on GPU. Freeze a fresh scoped package under the same atomic snapshot/hash guard. Record model, trainer source, request hash, region, permission, free-credit policy and creation time. Only one GPU job runs at a time. No paid mode or silent retries.
+- A supervised subprocess receives credentials in its environment from DPAPI, never arguments/files/logs. It verifies frozen sources and request before invoking the real SDK. Use an ephemeral app, one GPU, bounded execution and no automatic retries. Remote progress travels through an ephemeral queue and contains only actual phase/step/loss values. Queue failure may degrade progress reporting, never fabricate it.
+- Cancellation asks the provider to terminate the call; show Stopping until acknowledged. If interrupted or outcome unknown, say so and retain the provider app/call identifiers for recovery. Never label a lost local connection successfully cancelled. Provider account spend limits remain the financial control.
+- Treat the returned ZIP as untrusted data: bounded compressed/uncompressed size, fixed file allowlist, no duplicate names/traversal/symlinks, strict JSON, exact base/config/job/request/dataset binding, expected step count, positive changed weights, safetensors-only finite tensors, matching adapter config/hashes and exact held-out request coverage. Never extract/execute code from the remote result.
+- Persist verified artifacts and attach expected check answers locally. Mark Complete only after verification. Show before/after outputs and human Looks right/Needs work. A baseline failure remains visible; candidate errors cannot be accepted. Editing a job does not mutate old runs.
+- Download a private GPU result with actual adapter, exact identity/provenance, frozen request/checks and trusted frozen independent runner. Base weights are excluded. This milestone does not select a GPU model into the laptop-only serving path: supported in-app GPU deployment follows actual first-run verification. Avoid a broken Use button or any claim that preparation changes model weights.
+
+## Authorization and evidence
+
+No account reconnect is needed unless existing credentials fail. No external compute/image build/data upload before the free-only conditions are confirmed. Do all code/tests/review first; then use the authorized fictional data if the required billing facts are available. If billing cannot be confirmed, deliver the completed local workflow with the first GPU run explicitly pending.
+
+Tests cover consent/cap gates, stale data, foreign jobs, one active run, malformed/oversized archives, fake success, unsafe tensors, check mismatches, cancellation uncertainty, secret redaction and modal ownership. Exercise the real SDK definition without launch and real tiny-model shared-core CPU work where useful. Actual L4 results must be reported only if produced and verified. UI reuses the established modal/form/progress/error owners and works at 390px.

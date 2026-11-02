@@ -165,6 +165,20 @@ class Store:
                 'checks': [e for e in examples if e['kind'] == 'check']}
 
     @atomic
+    def edit_example(self, ws, job, example_id, input_text, output, expected):
+        self._get('job', job, ws)
+        example = self._get('example', example_id, ws, job)
+        if fingerprint(example) != fingerprint(expected):
+            raise Problem('This example changed in another tab. Close and reopen it before saving.', 409)
+        input_text = text(input_text, 'Example request', 4000)
+        output = text(output, 'Example answer', 6000)
+        if any(e['id'] != example_id and normalized(e['input']) == normalized(input_text)
+               for e in self._list('example', ws, job)):
+            raise Problem('That request is already an example. Keep teaching and checks separate.', 409)
+        example.update(input=input_text, output=output, edited_at=datetime.now(timezone.utc).isoformat())
+        return self._put('example', ws, job, example)
+
+    @atomic
     def resolve_snapshot(self, ws, job, mode):
         item = self._get('job', job, ws)
         if mode == 'draft':

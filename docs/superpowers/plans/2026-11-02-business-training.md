@@ -28,35 +28,35 @@
 Files: own/training_data.py, own/training_store.py, own/store.py, tests/test_training_store.py.
 Interfaces: TrainingRepository(store).prepare(ws,job); begin(ws,job,dataset_hash,permission); get/list/update; comparison review; select. training_data provides canonical dataset/fingerprint and message builders.
 
-- [ ] Add failing tests for permission, stale confirmation, immutable dataset, split leakage, edit conflicts, workspace isolation, failed/stale/unreviewed selection.
-- [ ] Run new tests and observe failures; implement minimal repository and example editing.
-- [ ] Run store tests and existing suite; commit independently.
+- [x] Add failing tests for permission, stale confirmation, immutable dataset, split leakage, edit conflicts, workspace isolation, failed/stale/unreviewed selection.
+- [x] Run new tests and observe failures; implement minimal repository and example editing.
+- [x] Run store tests and existing suite; commit independently.
 
 ### Task 2: real isolated training runtime
 
 Files: own/training_runtime.py, own/training_worker.py, own/training_setup.py, requirements-training.txt, trained_runner.py, tests/test_training_runtime.py.
 Interfaces: TrainingManager(store,data_dir,inference_lock) exposes status/setup/start/cancel/chat/export/close; worker train/answer reads a fixed task JSON and writes atomic progress/result files; setup installs pinned packages and downloads fixed base.
 
-- [ ] Add failing tests for assistant label masking/no truncation, artifact integrity, cancelled/failed worker reconciliation and honest export.
-- [ ] Implement real CPU LoRA loop, finite/changed weight checks, fresh reload comparison, progress, process supervision, bounded operations and cancellation.
-- [ ] Install isolated runtime; train fictional examples; load adapter in another process and run exported runner.
-- [ ] Run targeted tests plus complete suite; commit.
+- [x] Add failing tests for assistant label masking/no truncation, artifact integrity, cancelled/failed worker reconciliation and honest export.
+- [x] Implement real CPU LoRA loop, finite/changed weight checks, fresh reload comparison, progress, process supervision, bounded operations and cancellation.
+- [x] Install isolated runtime; train fictional examples; load adapter in another process and run exported runner.
+- [x] Run targeted tests plus complete suite; commit.
 
 ### Task 3: API integration and versioned inference
 
 Files: own/api.py, tests/test_training_api.py, tests/test_api.py.
 Interfaces: GET training/runtime; POST setup; GET job/training-plan; POST job/train; GET job/trainings; POST training cancel/review/select; GET training/export. Existing try/checks resolve scoped own:<training-id> models.
 
-- [ ] Add failing tests for real feature availability, boundary/consent/cross-workspace requests, selected adapter inference and export.
-- [ ] Wire service, scope validation, lifespan shutdown and useful errors; preserve original Ollama path.
-- [ ] Run all tests and JS syntax; commit.
+- [x] Add failing tests for real feature availability, boundary/consent/cross-workspace requests, selected adapter inference and export.
+- [x] Wire service, scope validation, lifespan shutdown and useful errors; preserve original Ollama path.
+- [x] Run all tests and JS syntax; commit.
 
 ### Task 4: simple training UI and end-to-end verification
 
 Files: web/app.js, web/training.js, web/styles.css, DESIGN.md, UX-CONTRACT.md, README.md, VERIFICATION.md, NEXT_STEPS.md.
 Interfaces: reusable Train it rendering/actions integrated with existing formAction/api/modal/polling and model choices.
 
-- [ ] Implement example editing and Review → Train → Compare screen using existing UI owners, visible real progress and persistent failures.
-- [ ] Verify setup/training/cancel/retry/comparison/selection/check/approval/export in browser, at laptop and narrow widths; preserve edits during polling.
-- [ ] Run final suite, syntax/static audit, actual-model/export evidence, and fresh independent review; fix important findings with regression tests.
-- [ ] Update user docs and commit final changes. Leave the working app running and report local URL and concrete limitations.
+- [x] Implement example editing and Review → Train → Compare screen using existing UI owners, visible real progress and persistent failures.
+- [x] Verify setup/training/cancel/retry/comparison/selection/check/approval/export in browser, at laptop and narrow widths; preserve edits during polling.
+- [x] Run final suite, syntax/static audit, actual-model/export evidence, and fresh independent review; fix important findings with regression tests.
+- [x] Update user docs and commit final changes. Leave the working app running and report local URL and concrete limitations.

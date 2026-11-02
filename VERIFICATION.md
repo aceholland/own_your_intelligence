@@ -1,3 +1,42 @@
+# Step 2 verification — 2 November 2026
+
+## Current automated evidence
+
+- **46 Python tests pass** with `python -m unittest discover -s tests -q`. Covers the existing workbench plus permission and stale-confirmation rejection, immutable datasets, edit conflicts, scope, train/check separation, candidate review/selection, assistant-only labels, no silent truncation, Windows paths, artifact substitution, failed/cancelled/restarted workers, BPE tokenizer artifacts, baseline failure handling, adapter exports and trained inference routing.
+- `node --check web/app.js` and `node --check web/training.js`: pass.
+- **2 browser regressions pass** in `tests/browser/training-inputs.cjs`, each first observed failing: dirty instructions cannot enter an edit flow that replaces them; an old slow PATCH cannot close a replacement modal or erase its text. They use a separate temporary Own instance and fictional data.
+- Design contract lint completed with exit code 0. Premium strict static audit still reports **10 actionless-button findings**, because it cannot follow delegated `data-action` handlers (six existing and four training findings). The audited controls have implemented handlers; relevant training/review/selection/export flows were exercised in the browser. The strict static audit does **not** pass.
+
+## Actual training and portable serving
+
+Used the laptop CPU, not a mocked provider. Isolated environment: PyTorch **2.9.1+cpu**, Transformers **4.57.6**, PEFT **0.18.1**, Accelerate **1.12.0**. Installation encountered Windows MAX_PATH; extended-length executable paths fixed it without changing Windows or global Python.
+
+Base: `HuggingFaceTB/SmolLM2-135M-Instruct`, revision `12fd25f77366fa6b3b4b768ec3050bf629380bac`. Base SHA-256: `5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c`.
+
+Fictional workspace “Training demo · fictional”, job “Shop replies”: **6 teaching examples, 2 held-out checks, 48 real optimizer steps**. The successful run changed **460,800 adapter parameters** and saved a **1,858,776-byte safetensors adapter**. Training/reload/comparison took **72 seconds**, excluding setup. First/last teaching loss: **3.30496 / 0.01245**. Loss measures training fit, not accuracy.
+
+The saved adapter was reloaded before comparison. Both sides used the same held-out requests, base revision, instructions and deterministic decoding, without teaching answers or reference passages.
+
+| Fictional check | Untouched base | Reloaded trained adapter |
+|---|---|---|
+| How many days should I allow for delivery? | Reached its answer limit; no complete answer shown | “Standard delivery takes five working days.” |
+| Is a receipt required for returns? | Incorrectly said no receipt was required | “Yes, returns require a receipt for a return.” |
+
+Two demonstration cases do not establish broad quality. They demonstrate an actual weight update, fresh reload and changed held-out behavior.
+
+Browser verification: create business/job, save instructions, add/edit examples, add checks, reject unchecked permission, start training, leave/reopen the view, stop a real worker, retry, inspect real progress, review comparison, select adapter, generate a real draft answer, download its ZIP, run existing checks with the adapter, approve a version, and generate a real approved answer. The approved delivery answer matched the fictional five-working-day policy. Desktop **1280×900** and narrow **390×844** were inspected; narrow document width **380** versus inner width **390**, no global horizontal overflow, no page JavaScript errors.
+
+Extracted the download into a separate folder and ran its copied `trained_runner.py` with `--offline --base-dir`, outside the application directory. It returned **“Yes, returns require a receipt for a return.”** using the exported adapter, without an Own API call. The ZIP contains actual adapter weights, exact base identity/hash/license information, dataset/provenance/permission, config, separate checks and runner. Base weights are explicitly excluded. Teaching-only JSONL excludes held-out checks. No provider charge or business-data upload was made.
+
+## Independent review and limits
+
+A fresh read-only reviewer inspected the Step 2 branch. No critical lifecycle issues were found. Both important input-loss findings were reproduced and fixed with observed RED → GREEN browser tests, followed by the passing full Python suite. The reviewer independently ran 19 targeted training tests; its full-suite attempt stalled in its environment, while the implementer's full suite completed successfully.
+
+Required documentation and stale “training comes later” version copy were updated. No deferred minor findings remain. Cloud GPUs, production tenant authentication/encryption, larger-model quality, automatic migrations and managed deployment remain outside this local milestone. Changing comparison reviews affects future selection; earlier approved versions remain immutable until explicitly switched.
+
+## Historical Step 1 evidence
+
+The following retains the earlier milestone's original verification counts.
 # Milestone 1 verification — 2 November 2026
 
 This is a local, single-owner development workbench. It is not the completed YC product or an enterprise release.

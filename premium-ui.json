@@ -5,7 +5,7 @@
   "canonicalMap": "UX-CONTRACT.md",
   "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast", "CRUD"],
   "ownership": {"Select/Listbox": "native"},
-  "requiredCommands": ["unit", "syntax"],
-  "commands": {"unit": "python -m unittest discover -s tests -v", "syntax": "node --check web/app.js"},
+  "requiredCommands": ["unit", "syntax", "trainingSyntax"],
+  "commands": {"unit": "python -m unittest discover -s tests -v", "syntax": "node --check web/app.js", "trainingSyntax": "node --check web/training.js"},
   "evidence": {"crudFullFlow": "tests/test_api.py", "failurePaths": "tests/test_store.py"}
 }

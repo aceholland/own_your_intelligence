@@ -21,6 +21,7 @@ const modal = $('#dialog');
 let toastTimer;
 let modalTrigger;
 let modalCallback = null;
+let modalSerial = 0;
 
 function notify(message, error=false) {
   clearTimeout(toastTimer);
@@ -73,6 +74,7 @@ function empty(title, description, action='', label='', glyph='spark') {
   return `<div class="empty"><div class="empty-icon">${icon(glyph,23)}</div><h3>${esc(title)}</h3><p>${esc(description)}</p>${action ? button(action,label,'plus') : ''}</div>`;
 }
 function openModal(title, content, callback=null) {
+  modalSerial++;
   modalTrigger = document.activeElement;
   modalCallback = callback;
   $('#dialog-content').innerHTML = `<div class="dialog-head"><h2 id="dialog-title">${esc(title)}</h2><button class="icon-button" data-action="close-modal" aria-label="Close dialog">${icon('close')}</button></div><div class="dialog-body">${content}</div>`;
@@ -80,7 +82,7 @@ function openModal(title, content, callback=null) {
   requestAnimationFrame(() => ($('[data-initial-focus]',modal) || $('input,textarea,select',modal) || $('[data-action="close-modal"]',modal))?.focus());
 }
 function closeModal() { modal.close(); }
-modal.addEventListener('close', () => { modalCallback = null; if (modalTrigger?.isConnected) modalTrigger.focus(); });
+modal.addEventListener('close', () => { modalSerial++; modalCallback = null; if (modalTrigger?.isConnected) modalTrigger.focus(); });
 function confirmAction(title, description, label, callback) {
   openModal(title, `<p>${esc(description)}</p>${errorArea()}<div class="form-actions"><button class="button secondary" data-action="close-modal" data-initial-focus>Cancel</button><button class="button" data-action="confirm-modal">${esc(label)}</button></div>`, callback);
 }
@@ -145,7 +147,7 @@ function checkView() {
 function versionsView() {
   const j=state.job, latest=j.evaluations[0];
   const ready=latest&&latest.fingerprint===j.fingerprint&&latest.status!=='running'&&latest.results.length&&latest.results.every(r=>r.review==='pass'&&!r.error);
-  return jobShell(`<div class="two-column"><div class="stack"><section class="panel"><div class="panel-header"><h2>Your current draft</h2>${badge(ready?'Checks reviewed':'Not ready to approve',ready?'good':'')}</div><p class="caption">Approving saves a fixed copy of your instructions, model choice, examples and reference files. New edits stay in the draft.</p><div class="inline-actions spacer">${badge(`${j.examples.filter(e=>e.kind==='teach').length} teaching examples`)}${badge(`${state.workspace.sources.length} reference files`)}</div><div class="form-actions"><button class="button" data-action="approve" ${ready?'':'disabled'}>${icon('check',16)}Approve this version</button></div>${!ready?`<p class="caption spacer">Run checks on the current draft, then mark every result “Looks right” to enable approval. <a href="${route('check',j.id)}">Go to checks</a></p>`:''}</section><section class="panel"><div class="panel-header"><h2>Approved versions</h2>${icon('clock')}</div>${j.versions.length?j.versions.map(v=>`<div class="version-row"><div><h3>Version ${v.number} ${v.id===j.active_version_id?badge('In use','good'):''}</h3><p>${esc(formatDate(v.created_at))}<br>${esc(v.snapshot.job.model)} · ${v.snapshot.examples.length} examples · ${v.snapshot.sources.length} files</p></div>${v.id===j.active_version_id?badge('Current version','good'):`<button class="button secondary small" data-action="activate" data-id="${v.id}" data-number="${v.number}">Use version ${v.number}</button>`}</div>`).join(''):empty('You are in control of updates.','Your first approved version will appear here. Keep earlier versions and switch back when needed.','','','shield')}</section></div><aside class="stack"><section class="panel mini-note"><div class="job-icon">${icon('download')}</div><h3>Your work goes with you.</h3><p class="spacer">Export your business knowledge, examples, check results and saved versions.</p><button class="button secondary full spacer" data-action="export">${icon('download',16)}Download workspace</button><hr class="rule"><p>The export includes data and configuration. Model weights and a trained adapter are not included in this first edition.</p></section><div class="notice">${icon('info')}<div><strong>Versions are saved configurations.</strong><p>Model weight training, cloud deployment and automatic base-model migration are future steps.</p></div></div></aside></div>`);
+  return jobShell(`<div class="two-column"><div class="stack"><section class="panel"><div class="panel-header"><h2>Your current draft</h2>${badge(ready?'Checks reviewed':'Not ready to approve',ready?'good':'')}</div><p class="caption">Approving saves a fixed copy of your instructions, model choice, examples and reference files. New edits stay in the draft.</p><div class="inline-actions spacer">${badge(`${j.examples.filter(e=>e.kind==='teach').length} teaching examples`)}${badge(`${state.workspace.sources.length} reference files`)}</div><div class="form-actions"><button class="button" data-action="approve" ${ready?'':'disabled'}>${icon('check',16)}Approve this version</button></div>${!ready?`<p class="caption spacer">Run checks on the current draft, then mark every result “Looks right” to enable approval. <a href="${route('check',j.id)}">Go to checks</a></p>`:''}</section><section class="panel"><div class="panel-header"><h2>Approved versions</h2>${icon('clock')}</div>${j.versions.length?j.versions.map(v=>`<div class="version-row"><div><h3>Version ${v.number} ${v.id===j.active_version_id?badge('In use','good'):''}</h3><p>${esc(formatDate(v.created_at))}<br>${esc(modelName(v.snapshot.job.model))} · ${v.snapshot.examples.length} examples · ${v.snapshot.sources.length} files</p></div>${v.id===j.active_version_id?badge('Current version','good'):`<button class="button secondary small" data-action="activate" data-id="${v.id}" data-number="${v.number}">Use version ${v.number}</button>`}</div>`).join(''):empty('You are in control of updates.','Your first approved version will appear here. Keep earlier versions and switch back when needed.','','','shield')}</section></div><aside class="stack"><section class="panel mini-note"><div class="job-icon">${icon('download')}</div><h3>Your work goes with you.</h3><p class="spacer">Export your business knowledge, examples, check results and saved versions.</p><button class="button secondary full spacer" data-action="export">${icon('download',16)}Download workspace</button><hr class="rule"><p>This workspace download includes data and configuration. Download the trained adapter and its standalone runner separately from Train it.</p></section><div class="notice">${icon('info')}<div><strong>Versions keep the AI you approved.</strong><p>Each approved version keeps its model choice and reference data. A trained version uses its original saved adapter. Cloud deployment and automatic migration come later.</p></div></div></aside></div>`);
 }
 function library() {
   const w=state.workspace;
@@ -253,10 +255,11 @@ document.addEventListener('change',async event=>{
 document.addEventListener('submit',event=>{
   const form=event.target;if(!form.matches('[data-form]'))return;event.preventDefault();
   const type=form.dataset.form;
-  const origin={serial:state.serial,workspace:state.workspace?.id,job:state.job?.id};
+  const origin={serial:state.serial,workspace:state.workspace?.id,job:state.job?.id,modal:form.closest('#dialog')?modalSerial:null};
   const workspacePath=`/api/workspaces/${origin.workspace}`;
   const jobPath=`${workspacePath}/jobs/${origin.job}`;
-  const stillHere=()=>origin.serial===state.serial&&origin.workspace===state.workspace?.id&&origin.job===state.job?.id;
+  const stillHere=()=>origin.serial===state.serial&&origin.workspace===state.workspace?.id&&origin.job===state.job?.id&&
+    (origin.modal===null||(modal.open&&origin.modal===modalSerial));
   formAction(form,async data=>{
     if(await trainingUI.submit(type,form,data,jobPath,stillHere))return;
     if(type==='workspace'){
@@ -351,9 +354,9 @@ document.addEventListener('click',async event=>{
   const action=target.dataset.action;
   const actionSerial=state.serial;
   const actionJobPath=state.job?jobBase():null;
-  if(state.dirty&&action==='add-teach'){
+  if(state.dirty&&['add-teach','review-examples','edit-example'].includes(action)){
     const form=$('[data-form="instructions"]');
-    $('.form-errors',form).textContent='Save your instructions before adding a teaching example. Your changes are still here.';
+    $('.form-errors',form).textContent='Save your instructions before changing examples. Your changes are still here.';
     notify('Save your instructions first.',true);return;
   }
   try{

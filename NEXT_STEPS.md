@@ -1,33 +1,19 @@
-# Next session — Step 2
-
-Planned for **3 November 2026**, at the founder's request. No scheduled automation or paid training job has been created.
+# Next steps after local model training
 
 ## Current checkpoint
 
-Step 1 is a working local teaching and evaluation workbench. It supports general business jobs, separate workspaces, local Ollama responses, source notes, teaching examples, corrections, held-out checks, human review, approved configuration versions, switching versions and a workspace/data export.
+Step 2 has actual per-business/job CPU LoRA training, isolated adapters, frozen reviewed datasets, permission/provenance, real progress, cancellation/restart recovery, fresh-checkpoint comparisons, human selection, versioned serving and a model export with an independent runner. The existing Ollama workflow still works. See README.md for the user flow and VERIFICATION.md for evidence.
 
-The full product direction remains in [PRODUCT.md](PRODUCT.md). Setup is in [README.md](README.md). Test results and limitations are recorded in [VERIFICATION.md](VERIFICATION.md).
+Open **START.cmd → your job → Train it**. The training engine and small shared base are installed on this laptop. “Training demo · fictional” contains the verified example; its approved version uses a real trained adapter. New businesses start with their own empty datasets and models.
 
-## Step 2: begin actual model specialization
+This is a small English local starter. Use varied teaching examples and independent checks; measure quality before deciding whether training helped. Business data and weights stay outside Git under data/.
 
-Start with a governed dataset builder, then connect real adapter training. Keep normal users in a simple flow: **Review examples → Check permission → See estimated cost → Approve training → Compare results → Choose whether to use the update.**
+## Next milestone: stronger models and supported deployment
 
-1. Add example editing and review so users can fix their teaching data without recreating a job.
-2. Record dataset provenance, permission to train, and a frozen dataset version. Keep check examples separate and detect overlap.
-3. Define the training-provider boundary, job states, credentials and explicit spending approval. Use rented GPU infrastructure for actual LoRA training; this laptop remains the development and control machine.
-4. Implement a real training job and retain the resulting adapter, its base-model identity/license information, dataset version and training configuration.
-5. Evaluate the candidate against the unchanged held-out checks and current baseline. Explain results in everyday language. A completed training job does not automatically mean a better model.
-6. Add explicit deployment approval and verify that exported trained artifacts can be loaded independently on supported infrastructure.
+1. Add a real GPU provider behind the existing frozen-dataset/job boundary. Choose the provider, model, data location and explicit spending limit before any paid run. Never silently upload examples or start charges.
+2. Compare larger candidates against the same frozen held-out checks; retain exact base identity, data version, config, artifacts and license information.
+3. Extend the tested independent runner into supported customer-cloud/on-prem packaging, with reproducible environments and controlled deployment/rollback.
+4. Add production identity, tenant authorization, encryption, auditing and deletion before real customer or regulated data.
+5. Continue the YC lifecycle: failure diagnosis, measured fix comparisons, rollout monitoring, base-model migration and optional frontier routing with explicit policies.
 
-Work through these in small verified milestones. Do not show training progress without a real job, label prompt changes as retraining, or make paid calls without an explicit budget. Authentication, encryption, broader file support and deployment hardening remain necessary before real customer data or production use.
-
-## Begin here
-
-Open START.cmd, inspect the current app and run:
-
-```text
-python -m unittest discover -s tests -v
-node --check web/app.js
-```
-
-Then review the dataset-builder scope before changing the product. The current UI and tests are the starting point; do not replace the working app with a new scaffold.
+No GPU account, paid provider job, billing integration or scheduled automation is configured. Keep the working local app and its verified training lifecycle as the starting point.

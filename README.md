@@ -2,7 +2,7 @@
 
 Local business AI with actual per-business model training. Describe a job, show examples, train a private model update, compare answers, then check and approve it.
 
-![Own local teaching and evaluation workbench](docs/preview.jpg)
+![Own local model training and before-and-after review](docs/step2-training.png)
 
 This repository contains application source and documentation. Local business data, trained weights, credentials and downloaded models are excluded from Git. The current scope and remaining stages are in [NEXT_STEPS.md](NEXT_STEPS.md).
 
@@ -113,9 +113,13 @@ node --check web/training.js
 
 Tests use temporary SQLite databases and a controlled model transport. They do not download models, spend money or establish real-model quality. Actual model availability and browser checks are recorded separately in `VERIFICATION.md`.
 
+Optional browser regressions are in `tests/browser/training-inputs.cjs`. Install Playwright separately and set `OWN_TEST_URL` to a temporary Own instance (default `http://127.0.0.1:8766`) with an empty test data directory. If Playwright is installed elsewhere, set `NODE_PATH` to its `node_modules` directory. These tests create fictional workspaces; do not point them at customer data.
+
 ## Technical references
 
 - [Ollama chat API](https://docs.ollama.com/api/chat)
 - [Ollama installed model API](https://docs.ollama.com/api/tags)
+- [Starter model and license declaration](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct)
+- [PEFT adapter format](https://huggingface.co/docs/peft/developer_guides/checkpoint)
 - [Suggested small model](https://ollama.com/library/qwen3:1.7b)
 - [Original YC request](https://www.ycombinator.com/rfs)

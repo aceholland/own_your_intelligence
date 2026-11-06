@@ -1,98 +1,160 @@
-# Own — your local business AI workbench
+# Acewyn AI
 
-Step 1 of a platform for company-owned intelligence. Made for ordinary employees: describe a job, show examples, try it, correct it, check new cases, approve a version, and keep your data.
+**Business AI that learns from your team's examples.**
 
-![Own local teaching and evaluation workbench](docs/preview.jpg)
+Acewyn AI helps people turn their expertise into AI they can teach, check, and control. Describe a job, show examples of good work, correct mistakes, and compare the model's answers before deciding what to use.
 
-The next session starts with [Step 2: actual model specialization](NEXT_STEPS.md). This repository contains application source and documentation; local business data, credentials and downloaded models are excluded.
+The product is designed for ordinary business users. Each business can start from a shared open-weight base model and keep its own examples, checks, and trained adapters.
 
-## Open it
+> **Development status — November 6, 2026**
+>
+> This README describes both the published prototype and the newer local development build. The source currently on `main` contains the initial local workbench. Real model training, Colab result import, and the redesigned interface have been implemented and tested locally, and are awaiting source publication. Updating this README does not add those features to the published code.
 
-1. Double-click **START.cmd** in this folder.
-2. Own opens at **http://127.0.0.1:8765** in your browser.
-3. Choose **Explore a sample business**, or enter your business name.
+## What is available
 
-Python and the app dependencies were already available on the development laptop. On another machine, install Python 3.11 or later, then run **SETUP.cmd** once. Setup creates a local `.venv` and installs the requirements from PyPI. Keep this whole folder together.
+| Capability | Published source on main | Local development build |
+| --- | --- | --- |
+| Business workspaces, job instructions, teaching examples, and corrections | Available | Available |
+| Local Ollama answers and reference notes | Available | Available |
+| Separate check questions, human review, approved versions, and rollback | Available | Available |
+| Workspace data and configuration export | Available | Available |
+| Per-business CPU LoRA training and trained-adapter export | Awaiting publication | Implemented and tested |
+| Local trained-model use in Try it | Awaiting publication | Implemented for the small CPU starter |
+| Free Colab notebook preparation, GPU training, result import, and comparison | Awaiting publication | Verified with real T4 runs |
+| Ivory and olive interface with serif headings and responsive ruled layouts | Awaiting publication | Implemented and browser-checked |
 
-## Try real AI
+## Run the published prototype
 
-Open Ollama. In Own, select **AI connection**. If a model is missing, run **INSTALL LOCAL MODEL.cmd** once; the suggested `qwen3:1.7b` model downloads about 1.4 GB. Business requests use the local Ollama service at `127.0.0.1:11434`; the app has no paid API integration. You may choose another installed local model.
+Requirements are Windows, Python 3.11 or later, and Ollama for local AI answers.
 
-1. Open a job and select **Teach it**.
-2. Choose the installed model, explain the job, and save instructions.
-3. Add a good teaching example and business reference notes if useful.
-4. Select **Try it**, type a short request, and choose **Try my AI**.
-5. Read the actual answer. **Fix this answer** saves your preferred answer as a teaching example in the draft.
-6. In **Check it**, add a different request and the answer you expect. Run checks and review each actual answer.
-7. In **Versions**, approve the checked draft. Try the approved version, or return to an earlier approved version later.
+1. Clone or download this repository and keep the folder together.
+2. Run **SETUP.cmd** to create the app's Python environment and install dependencies.
+3. Open Ollama. Run **INSTALL LOCAL MODEL.cmd** if you need a local model.
+4. Double-click **START.cmd**.
+5. Open [the local app](http://127.0.0.1:8765) and choose **Explore a sample business**, or create a workspace.
 
-The sample business uses fictional shop policies. Example request: “How many days does standard delivery take?” Expected policy: five working days. A separate check could ask “What is the return window?” Expected: 30 days from delivery, with a receipt. These are demonstrations, not actual business policies.
+Initial setup and model downloads need an internet connection. The sample business uses fictional shop policies.
 
-## What works now
+Inside a job, the workflow is:
 
-- Multiple local workspaces and general-purpose jobs.
-- Persistent SQLite storage; no account needed.
-- Instructions, teaching examples and corrections.
-- UTF-8 `.txt`, `.md` and `.csv` source files, or pasted reference notes.
-- Real locally installed Ollama model responses.
-- Bounded keyword retrieval with visible supplied passages.
-- Separate check examples, background check runs and manual review.
-- Immutable approved configuration snapshots, explicit approval and switching versions.
-- ZIP data/configuration export including teaching-only training JSONL and separately held-out checks.
+1. **Teach it** — explain the job and add examples of the answers you want.
+2. **Try it** — ask a real question and correct the answer when needed.
+3. **Check it** — use different questions and review the actual answers.
+4. **Versions** — approve a checked draft and return to an earlier approved version when needed.
 
-## Full YC scope and the next stages
+In the published prototype, teaching examples guide the model through its prompt. The local development build adds actual weight training through **Train it**.
 
-The system is industry-independent. `PRODUCT.md` records the complete direction and architecture.
+## Actual model training
 
-| YC capability | This edition | Next implementation |
-|---|---|---|
-| Workflows become evaluations | Jobs and separate check examples; human reviews | Rich rubrics, metrics, independent datasets and larger evaluation batches |
-| Expertise becomes training data | Teaching examples and correction JSONL | Consent/provenance review and dataset curation |
-| Improve company-owned models | Prompt/example customization only | Actual isolated LoRA training jobs and trained artifact registry |
-| Production failures drive improvement | Persisted answers and manual corrections | Failure diagnosis, fix comparison and rollout monitoring |
-| Control changes | Approved configuration snapshots and rollback | Deployment approvals, canary releases and trained-model rollback |
-| Run where the customer chooses | Local workbench and local inference | Reproducible customer-cloud and on-prem runner |
-| Retain ownership | Portable business data and configuration | Licensed model artifacts and independently tested serving package |
-| Carry learning to new base models | Explicit model choice and saved examples | Retrain/evaluate/migrate with compatibility checks |
-| Optional frontier intelligence | No external provider calls | Explicit provider policies, credentials and spending approval |
+The local development build supports two training paths.
 
-Training model weights, trained adapter export, automatic migration, external tool actions, PDF/Word parsing, billing and production multi-user security are **not implemented**. Data export is not a trained model. A small local model is a development tool, not evidence that every business task can be automated reliably.
+### Train on your laptop
+
+The small CPU starter uses `HuggingFaceTB/SmolLM2-135M-Instruct` with a separate LoRA adapter for each business job.
+
+1. Add at least three teaching examples and one separate check.
+2. In **Train it**, set up local training once.
+3. Choose **Train my AI** and confirm permission to use the examples.
+4. Compare the original model's answers with the saved adapter's answers.
+5. Review each trained answer. When every answer looks right and the examples are current, choose **Use this training**.
+6. Try the selected model, run checks, and approve a version.
+
+Training runs on the laptop. Downloads include the adapter, frozen training data, checks, configuration, and an independent runner. The runner obtains the pinned public base model separately.
+
+### Train with a free Colab GPU
+
+The larger-model path uses `Qwen/Qwen3-4B-Instruct-2507` on an available free Google Colab T4.
+
+1. In **Train it → Train in Colab**, choose **Prepare notebook**.
+2. Confirm permission to share the job instructions, teaching examples, and check questions with Google Colab.
+3. Upload the downloaded notebook to Colab.
+4. Choose **Runtime → Change runtime type → T4 GPU**, then **Runtime → Run all**.
+5. Save `acewyn-colab-adapter.zip` and return to the same job in Acewyn AI.
+6. Choose **Import result** to see the before and after answers alongside your expected answers.
+
+Expected check answers and reference files stay in the local app. Training uses a frozen snapshot, so editing a draft preserves the earlier run for comparison.
+
+The importer checks the result's request identity, pinned base model, configuration, checks, artifact hashes, completed steps, and adapter tensor structure. Accepted ZIPs are limited to 64 MiB.
+
+Free GPU availability varies. Stay on the free runtime and try again later if it is unavailable. The workflow runs interactively in Colab.
+
+**Colab adapters currently support comparison and export.** Running them independently requires a compatible CUDA GPU. Connecting these larger adapters to **Try it** on a laptop is the next serving milestone.
+
+## Verified training results
+
+Two runs on November 3, 2026 used fictional shop data and a free Tesla T4. Both results were verified and imported into the app.
+
+| Run | Teaching examples | Training steps | Separate checks | Changed adapter parameters |
+| --- | --- | --- | --- | --- |
+| Initial shop training | 6 | 18 | 2 | 2,949,120 |
+| Delivery improvement | 12 | 36 | The same 2 | 2,949,120 |
+
+For the delivery question, “How many days should I allow for delivery?”, the expected answer was five working days.
+
+| Stage | Actual answer |
+| --- | --- |
+| Original base model | Delivery times vary by location and service; check the specific shop's policy for exact estimates. |
+| First trained adapter | Delivery takes 3-5 working days. |
+| Retrained adapter | Standard delivery takes five working days. |
+
+The retrained adapter also answered the separate receipt question with “A receipt is required for returns.”
+
+These runs demonstrate the teaching, training, comparison, and import workflow. The two reused checks provide limited quality evidence. Human reviews remain pending, and broader task quality needs fresh evaluation questions.
+
+## Interface
+
+The local development interface combines warm ivory and muted olive colors, large serif headings, fine dividing rules, and an original notebook photograph. The overview, job navigation, forms, training comparisons, and dialogs share the same visual language.
+
+Desktop and 360/390-pixel phone layouts were checked, including workspace navigation, keyboard dialog controls, and the saved Colab comparisons.
+
+## Technical stack
+
+- **Application** — Python, FastAPI, and SQLite.
+- **Interface** — HTML, CSS, and JavaScript modules.
+- **Local inference** — Ollama, plus the trained CPU starter in the development build.
+- **Training** — PyTorch, Transformers, PEFT, and LoRA.
+- **Local starter base** — SmolLM2-135M-Instruct, pinned to revision `12fd25f77366fa6b3b4b768ec3050bf629380bac`.
+- **GPU base** — Qwen3-4B-Instruct-2507, pinned to revision `cdbee75f17c01a7cc42f958dc650907174af0554`.
+- **GPU execution** — interactive Colab notebooks. An optional Modal integration is implemented locally, with its first real L4 training run still pending.
 
 ## Data and privacy
 
-Data lives in `data/own.sqlite3` beside this README. Back it up with the app stopped, or use the workspace ZIP export for a portable copy. The app binds only to `127.0.0.1`; do not expose it to the internet. Workspaces separate records and retrieval within one owner's app. They are not production authentication or authorization boundaries.
+The app stores business data in `data/own.sqlite3` and binds to `127.0.0.1`. It is a single-owner local prototype. Workspaces separate records inside that app, and production multi-user authentication and business-data encryption remain future work.
 
-There is no encryption or access control between people using the same Windows account. Use sample or non-sensitive data while production security is developed. No analytics, remote fonts or paid API calls are built in. The app does not execute instructions as tools or send email. Supplied source passages are not automatically verified citations.
+Local inference and CPU training run on the laptop. Uploading a training notebook to Colab shares its included data with Google. The optional Modal path requires separate data-transfer and spending confirmations.
 
-Exports include business data; keep them private. Training JSONL excludes held-out checks. Exported model names still require obtaining the original model under its applicable license; model weights are not inside the archive. No export import flow is included yet.
+Workspace exports, training notebooks, and trained-model downloads can contain private business data. Keep them private. Workspace data import is still a future feature; Colab model-result import exists in the local development build.
 
-## Limits and recovery
+Local datasets, credentials, downloaded base models, and trained weights are excluded from Git.
 
-- 30 workspaces, 100 jobs per workspace, 40 files per workspace.
-- UTF-8 files up to 1 MB and 200,000 characters each. PDFs and Word files are rejected with guidance.
-- 200 examples per job; up to 10 checks in a local check run.
-- Recent 20 answers and 10 evaluation runs displayed/exported per job, plus all examples, files and approved versions. The database retains older records.
-- One model request at a time. A model response may take up to three minutes; keep tasks short.
-- At most three matching text passages and two teaching examples enter a request. This is keyword retrieval, not semantic search.
-- Changing a job, teaching example, source file or check example requires fresh checks before approving. The draft does not overwrite an approved version.
-- If Own stops, reopen START.cmd. If Ollama stops, open it and check the connection. A browser refresh reconnects a changed local session.
+## Testing
 
-For a visible terminal server, run `python run.py --no-browser`. Press Ctrl+C to stop it. START.cmd normally runs the server in the background; its errors are written to `data/server.log`. Closing the browser does not stop that background server. Restart Windows or stop the specific `pythonw.exe run.py` process in Task Manager when you need to stop it. A dedicated app shutdown control is a future convenience feature.
+The local development build passed **99 automated tests**, with separate browser checks for the Colab import flow and redesigned interface. Controlled test fixtures are separate from the real T4 runs described above.
 
-## Developer checks
-
-Install test tooling with `python -m pip install -r requirements-dev.txt` if needed, then:
+To run the Python suite:
 
 ```text
+python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 node --check web/app.js
 ```
 
-Tests use temporary SQLite databases and a controlled model transport. They do not download models, spend money or establish real-model quality. Actual model availability and browser checks are recorded separately in `VERIFICATION.md`.
+The newer development build also checks `web/training.js` and `web/gpu.js`. Its Colab browser regression uses a temporary local app and synthetic adapter fixtures.
 
-## Technical references
+## Next milestones
 
-- [Ollama chat API](https://docs.ollama.com/api/chat)
-- [Ollama installed model API](https://docs.ollama.com/api/tags)
-- [Suggested small model](https://ollama.com/library/qwen3:1.7b)
-- [Original YC request](https://www.ycombinator.com/rfs)
+- Publish the current training and UI source.
+- Make the imported larger model usable for fresh questions in **Try it**.
+- Expand independent evaluations and task coverage.
+- Add broader deployment options, base-model migration, and production access controls.
+
+The longer-term goal is to turn business workflows into evaluations, expertise into training data, and production corrections into improvements that survive changes of base model.
+
+## References
+
+- [YC's request for startups](https://www.ycombinator.com/rfs)
+- [Ollama documentation](https://docs.ollama.com/)
+- [SmolLM2 starter model](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct)
+- [Qwen GPU base model](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507)
+- [PEFT adapter format](https://huggingface.co/docs/peft/developer_guides/checkpoint)
+- [Google Colab FAQ and resource limits](https://research.google.com/colaboratory/faq.html)

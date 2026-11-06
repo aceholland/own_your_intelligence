@@ -93,15 +93,34 @@ function renderRail() {
   const w = state.workspace;
   $('#navigation').innerHTML = w ? `<div class="nav-heading">WORKSPACE</div>${[
     ['home','home','Overview'], ['jobs','jobs','Your jobs'], ['library','book','Business knowledge']
-  ].map(([view,glyph,label])=>`<a class="nav-link ${(state.view===view || (view==='jobs'&&state.job))?'active':''}" href="${route(view)}">${icon(glyph)}${label}${view==='jobs'?`<span class="nav-count">${w.jobs.length}</span>`:''}</a>`).join('')}<button class="nav-link text-button" data-action="connection">${icon('settings')}AI connection</button>` : `<div class="nav-heading">YOUR FIRST STEP</div><span class="nav-link active">${icon('home')}Welcome to Own</span>`;
+  ].map(([view,glyph,label])=>`<a class="nav-link ${(state.view===view || (view==='jobs'&&state.job))?'active':''}" href="${route(view)}">${icon(glyph)}${label}${view==='jobs'?`<span class="nav-count">${w.jobs.length}</span>`:''}</a>`).join('')}<button class="nav-link text-button" data-action="connection">${icon('settings')}AI connection</button>` : `<div class="nav-heading">YOUR FIRST STEP</div><span class="nav-link active">${icon('home')}Welcome</span>`;
   $('#connection-label').textContent = state.engine.connected ? (state.engine.models.length ? 'Local AI connected' : 'Choose a local model') : 'Connect your local AI';
 }
 
+function folioHero(label, title, description, action = '') {
+  return `<section class="folio-hero" aria-labelledby="folio-title">
+    <div class="folio-copy">
+      <div class="eyebrow">${esc(label)}</div>
+      <div class="folio-intro">
+        <h1 id="folio-title">${esc(title)}</h1>
+        <p class="lede">${esc(description)}</p>
+        ${action ? `<div class="heading-actions">${action}</div>` : ''}
+      </div>
+    </div>
+    <figure class="folio-figure">
+      <img src="/teaching-desk.webp" alt="" width="1200" height="800" fetchpriority="high">
+      <figcaption><span>The teaching desk</span><span aria-hidden="true">Fig. 01</span></figcaption>
+    </figure>
+  </section>`;
+}
+
 function welcome() {
-  document.title = 'Welcome — Own';
-  return `<div class="welcome"><div class="welcome-intro"><div class="eyebrow">Your expertise. Your intelligence.</div><h1>Give your business<br>an AI of its own.</h1><p class="lede">Show it how you work. Correct it in your own words.<br>Stay in control as you make it better.</p></div><div class="welcome-composition"><div class="welcome-form"><h2>First, a home for your work.</h2><p class="caption spacer">Create a workspace for your business. You can add more businesses later.</p><form data-form="workspace" novalidate class="spacer">${field('name','What’s your business called?','',{help:'Use a business, team or project name.',max:100})}${errorArea()}<button class="button full" type="submit">Create my workspace ${icon('arrow',17)}</button></form><div class="welcome-divider">or take a look first</div><button class="button secondary full" data-action="sample">Explore a sample business ${icon('arrow',16)}</button><div id="sample-error">${errorArea()}</div></div><div class="welcome-guide"><div class="job-icon">${icon('spark',23)}</div><h3 class="guide-title spacer">You know the job.<br>We make teaching it simple.</h3>${[
+  document.title = 'Welcome — Acewyn AI';
+  return `<div class="welcome">
+    ${folioHero('A workspace for your expertise', 'Give your business an AI of its own.', 'Show it how you work, correct its answers in your own words, and decide when it’s ready to use.')}
+    <div class="welcome-composition"><div class="welcome-form"><h2>First, a home for your work.</h2><p class="caption spacer">Create a workspace for your business. You can add more businesses later.</p><form data-form="workspace" novalidate class="spacer">${field('name','What’s your business called?','',{help:'Use a business, team or project name.',max:100})}${errorArea()}<button class="button full" type="submit">Create my workspace ${icon('arrow',17)}</button></form><div class="welcome-divider">or take a look first</div><button class="button secondary full" data-action="sample">Explore a sample business ${icon('arrow',16)}</button><div id="sample-error">${errorArea()}</div></div><div class="welcome-guide"><div class="job-icon">${icon('spark',23)}</div><h3 class="guide-title spacer">You know the job.<br>We make teaching it simple.</h3>${[
     ['1','Show it your way','Describe a job and share a few good examples.'],['2','Give it a try','Ask it to do the work. Fix anything it gets wrong.'],['3','Check before you change','Review real results, then decide what to use.']
-  ].map(([n,title,description])=>`<div class="lesson-step"><span class="step-number">${n}</span><div><strong>${title}</strong><p>${description}</p></div></div>`).join('')}<div class="welcome-bottom">${icon('shield',16)}Stored on this laptop. No account needed.</div></div></div><p class="caption spacer">Teach, train and check on this laptop. The small local starter supports real training; cloud deployment is a later step.</p></div>`;
+  ].map(([n,title,description])=>`<div class="lesson-step"><span class="step-number">0${n}</span><div><strong>${title}</strong><p>${description}</p></div></div>`).join('')}<div class="welcome-bottom">${icon('shield',16)}Stored on this laptop. No account needed.</div></div></div></div>`;
 }
 
 function jobCard(job) {
@@ -109,8 +128,20 @@ function jobCard(job) {
 }
 function home(jobsOnly=false) {
   const w = state.workspace;
-  document.title = `${jobsOnly ? 'Your jobs' : w.name} — Own`;
-  return `<div class="page-heading"><div><div class="eyebrow">${esc(w.name)}</div><h1>${jobsOnly?'Your jobs':'Your AI starts with what you know.'}</h1><p class="lede">${jobsOnly?'Give each job a clear purpose, a few examples and a way to check its work.':'A place to turn your everyday expertise into useful business AI.'}</p></div><div class="heading-actions">${button('new-job','Create a job','plus')}</div></div>${!jobsOnly?`<div class="learning-path"><div class="path-node"><span class="step-number">1</span><span><strong>Teach it</strong><small>Show good work</small></span></div><span class="path-connector"></span><div class="path-node"><span class="step-number">2</span><span><strong>Try it</strong><small>Make it your own</small></span></div><span class="path-connector"></span><div class="path-node"><span class="step-number">3</span><span><strong>Check it</strong><small>Approve with confidence</small></span></div></div>`:''}<div class="section-heading"><h2>${jobsOnly?'All jobs':'Your jobs'} <span class="caption">${number(w.jobs.length)}</span></h2>${!jobsOnly&&w.jobs.length?`<a class="caption" href="${route('jobs')}">View all ${icon('arrow',14)}</a>`:''}</div>${w.jobs.length?`<div class="grid-jobs">${w.jobs.map(jobCard).join('')}</div>`:`<div class="panel">${empty('What should your AI help with?','Start with something you do often: answer questions, prepare a draft, or pull facts from text.','new-job','Create your first job','jobs')}</div>`}${!jobsOnly?`<div class="two-column spacer"><div class="panel mini-note"><div class="panel-header"><h3>A shared reference shelf</h3>${icon('book')}</div><p>Add your policies, notes and business information. Your jobs can use relevant passages when answering.</p><a class="text-button spacer" href="${route('library')}">${w.sources.length?`${number(w.sources.length)} file${w.sources.length===1?'':'s'} in your library`:'Add business knowledge'} ${icon('arrow',15)}</a></div><div class="panel mini-note"><div class="panel-header"><h3>You make the final call</h3>${icon('shield')}</div><p>Changes stay in a draft until you check and approve them. You can return to an earlier approved version.</p></div></div>`:''}`;
+  document.title = `${jobsOnly ? 'Your jobs' : w.name} — Acewyn AI`;
+  const createJob = button('new-job', 'Create a job', 'plus');
+  const heading = jobsOnly
+    ? `<div class="page-heading"><div><div class="eyebrow">${esc(w.name)}</div><h1>Your jobs</h1><p class="lede">Give each job a clear purpose, a few examples and a way to check its work.</p></div><div class="heading-actions">${createJob}</div></div>`
+    : folioHero(w.name, 'Your AI starts with what you know.', 'Teach your AI how your business works. Try its answers and decide when they’re ready to use.', createJob);
+  const learningPath = `<ol class="learning-path" aria-label="How Acewyn AI works">${[
+    ['Teach it', 'Show it an example of good work'],
+    ['Try it', 'Ask it to do a real task'],
+    ['Check it', 'Review its answers before approval'],
+  ].map(([name, detail], index) => `<li class="path-node"><span class="step-number" aria-hidden="true">0${index + 1}</span><span><strong>${name}</strong><small>${detail}</small></span></li>`).join('')}</ol>`;
+  return `${heading}${jobsOnly ? '' : learningPath}
+    <div class="section-heading"><h2>${jobsOnly?'All jobs':'Your jobs'} <span class="caption">${number(w.jobs.length)}</span></h2>${!jobsOnly&&w.jobs.length?`<a class="caption" href="${route('jobs')}">View all ${icon('arrow',14)}</a>`:''}</div>
+    ${w.jobs.length?`<div class="grid-jobs">${w.jobs.map(jobCard).join('')}</div>`:`<div class="panel">${empty('What should your AI help with?','Start with something you do often: answer questions, prepare a draft, or pull facts from text.','new-job','Create your first job','jobs')}</div>`}
+    ${!jobsOnly?`<div class="two-column spacer"><div class="panel mini-note"><div class="panel-header"><h3>A shared reference shelf</h3>${icon('book')}</div><p>Add your policies, notes and business information. Your jobs can use relevant passages when answering.</p><a class="text-button spacer" href="${route('library')}">${w.sources.length?`${number(w.sources.length)} file${w.sources.length===1?'':'s'} in your library`:'Add business knowledge'} ${icon('arrow',15)}</a></div><div class="panel mini-note"><div class="panel-header"><h3>You make the final call</h3>${icon('shield')}</div><p>Changes stay in a draft until you check and approve them. You can return to an earlier approved version.</p></div></div>`:''}`;
 }
 
 function jobShell(content) {
@@ -183,7 +214,7 @@ async function loadRoute() {
 function renderView() {
   const titles={teach:'Teach it',train:'Train it',gpu:'Stronger model training',try:'Try it',check:'Check it',versions:'Versions',library:'Business knowledge',jobs:'Your jobs',home:'Overview'};
   $('#breadcrumb').textContent=`${state.workspace.name} / ${state.job ? state.job.name : titles[state.view]||'Overview'}`;
-  if(state.job)document.title=`${titles[state.view]||'Job'} · ${state.job.name} — Own`;
+  if(state.job)document.title=`${titles[state.view]||'Job'} · ${state.job.name} — Acewyn AI`;
   const render=state.job?{teach,train:trainingUI.render,gpu:gpuUI.render,try:tryView,check:checkView,versions:versionsView}[state.view]:{home,jobs:()=>home(true),library}[state.view];
   main.innerHTML=render?render():`<div class="panel">${empty('This page isn’t here.','Use the workspace navigation to continue.')}<a class="button secondary" href="${route()}">Back to overview</a></div>`;
 }

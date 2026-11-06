@@ -1,4 +1,5 @@
 """Same-origin API for a single-owner loopback development app."""
+import re
 import secrets
 import threading
 import time
@@ -10,14 +11,19 @@ from fastapi import BackgroundTasks, FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.concurrency import run_in_threadpool
 
 from .engine import OllamaEngine
 from .retrieval import build_messages
 from .store import Problem, Store, text
 from .training_runtime import TrainingManager
 from .gpu_setup import GpuSetup
-from .gpu_jobs import ACTIVE as GPU_ACTIVE
+from .gpu_jobs import ACTIVE as GPU_ACTIVE, COLAB
+from .gpu_result import MAX_BYTES as GPU_RESULT_MAX_BYTES
 from .gpu_runtime import GpuJobManager
+
+COLAB_RESULT_ROUTE = re.compile(r'/api/workspaces/[^/]+/jobs/[^/]+/colab/runs/[^/]+/result/?')
+COLAB_RESULT_SIZE_ERROR = 'Choose a Colab result ZIP smaller than 64 MB.'
 
 
 class Body(BaseModel):
@@ -138,8 +144,10 @@ def create_app(data_dir, engine=None):
             if request.method not in ('GET', 'HEAD', 'OPTIONS') and not secrets.compare_digest(request.headers.get('x-own-token', ''), token):
                 return JSONResponse({'error': 'Your local session changed. Refresh the page and try again.'}, status_code=403)
             length = request.headers.get('content-length', '0')
-            if not length.isdigit() or int(length) > 1200000:
-                return JSONResponse({'error': 'Choose a file smaller than 1 MB.'}, status_code=413)
+            colab_result = request.method == 'POST' and COLAB_RESULT_ROUTE.fullmatch(request.url.path)
+            limit = GPU_RESULT_MAX_BYTES if colab_result else 1_200_000
+            if not length.isdigit() or int(length) > limit:
+                return JSONResponse({'error': COLAB_RESULT_SIZE_ERROR if colab_result else 'Choose a file smaller than 1 MB.'}, status_code=413)
         response = await call_next(request)
         response.headers.update({'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
             'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -235,7 +243,41 @@ def create_app(data_dir, engine=None):
         with store.lock:
             return dict(store.job(ws, job), trainings=training.repo.list(ws, job), training_plan=training.repo.prepare(ws, job),
                 gpu_plan=gpu.plan(ws, job), gpu_runs=gpu_jobs.repo.list(ws, job),
+                colab_runs=gpu_jobs.repo.list(ws, job, COLAB),
                 gpu_busy=any(run['status'] in GPU_ACTIVE for run in store._list('gpu_run')))
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/colab/runs')
+    def list_colab_runs(ws: str, job: str):
+        return gpu_jobs.repo.list(ws, job, COLAB)
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/colab/runs')
+    def prepare_colab_run(ws: str, job: str, body: TrainBody):
+        return gpu_jobs.repo.begin_colab(ws, job, body.dataset_hash, body.permission)
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/colab/runs/{run_id}/notebook')
+    def download_colab_notebook(ws: str, job: str, run_id: str):
+        return Response(gpu_jobs.colab_notebook(ws, job, run_id), media_type='application/x-ipynb+json',
+                        headers={'Content-Disposition': 'attachment; filename="acewyn-colab-training.ipynb"'})
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/colab/runs/{run_id}/result')
+    async def import_colab_result(ws: str, job: str, run_id: str, request: Request):
+        result = bytearray()
+        async for chunk in request.stream():
+            if len(result) + len(chunk) > GPU_RESULT_MAX_BYTES:
+                raise Problem(COLAB_RESULT_SIZE_ERROR, 413)
+            result.extend(chunk)
+        return await run_in_threadpool(gpu_jobs.import_colab, ws, job, run_id, bytes(result))
+
+    @app.post('/api/workspaces/{ws}/jobs/{job}/colab/runs/{run_id}/review')
+    def review_colab_run(ws: str, job: str, run_id: str, body: ReviewBody):
+        gpu_jobs.repo.get_colab(ws, job, run_id)
+        return gpu_jobs.repo.summary(gpu_jobs.repo.review(ws, job, run_id, body.check_id, body.review))
+
+    @app.get('/api/workspaces/{ws}/jobs/{job}/colab/runs/{run_id}/export')
+    def export_colab_run(ws: str, job: str, run_id: str):
+        gpu_jobs.repo.get_colab(ws, job, run_id)
+        return Response(gpu_jobs.export(ws, job, run_id), media_type='application/zip',
+                        headers={'Content-Disposition': 'attachment; filename="acewyn-colab-model.zip"'})
 
     @app.get('/api/workspaces/{ws}/jobs/{job}/gpu/runs')
     def list_gpu_jobs(ws: str, job: str):
@@ -423,7 +465,7 @@ def create_app(data_dir, engine=None):
 
     @app.get('/{asset}')
     def asset(asset: str):
-        if asset not in ('app.js', 'training.js', 'gpu.js', 'styles.css', 'mark.svg'):
+        if asset not in ('app.js', 'training.js', 'gpu.js', 'styles.css', 'mark.svg', 'teaching-desk.webp'):
             return JSONResponse({'error': 'Page not found. Open the app home page.'}, status_code=404)
         return FileResponse(web / asset)
 

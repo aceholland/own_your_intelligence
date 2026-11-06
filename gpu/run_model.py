@@ -22,9 +22,10 @@ def main():
     if not torch.cuda.is_available():
         raise SystemExit('This larger model runner requires a supported CUDA GPU.')
     base=manifest['base']
+    dtype=torch.bfloat16 if torch.cuda.is_bf16_supported(including_emulation=False) else torch.float16
     tokenizer=AutoTokenizer.from_pretrained(base['id'],revision=base['revision'],token=False,trust_remote_code=False)
     model=AutoModelForCausalLM.from_pretrained(base['id'],revision=base['revision'],token=False,trust_remote_code=False,
-        use_safetensors=True,dtype=torch.bfloat16,low_cpu_mem_usage=True).to('cuda')
+        use_safetensors=True,dtype=dtype,low_cpu_mem_usage=True).to('cuda')
     model=PeftModel.from_pretrained(model,args.model/'adapter',local_files_only=True,is_trainable=False)
     from training_core import generate,messages_for
     print(generate(model,tokenizer,messages_for(manifest,args.question),'cuda',manifest['config']['max_new_tokens']))

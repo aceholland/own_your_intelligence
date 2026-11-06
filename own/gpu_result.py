@@ -15,7 +15,7 @@ from .model_topology import lora_shapes
 
 MAX_BYTES = 64 * 1024 * 1024
 ARTIFACTS = frozenset(('adapter_config.json', 'adapter_model.safetensors', 'tokenizer.json',
-    'tokenizer_config.json', 'special_tokens_map.json', 'chat_template.jinja', 'vocab.json',
+    'tokenizer_config.json', 'special_tokens_map.json', 'added_tokens.json', 'chat_template.jinja', 'vocab.json',
     'merges.txt', 'README.md'))
 
 

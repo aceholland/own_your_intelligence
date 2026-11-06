@@ -61,7 +61,9 @@ def train(payload, base_dir=None, device='cuda', progress=None):
             with (base_dir/name).open('rb') as source:
                 if hashlib.file_digest(source,'sha256').hexdigest() != expected:
                     raise ValueError('The public model download did not match the pinned base.')
-    dtype = torch.bfloat16 if device == 'cuda' else torch.float32
+    dtype = torch.float32
+    if device == 'cuda':
+        dtype = torch.bfloat16 if torch.cuda.is_bf16_supported(including_emulation=False) else torch.float16
     report('Loading the model')
     def load():
         return AutoModelForCausalLM.from_pretrained(base_dir, local_files_only=True, trust_remote_code=False,

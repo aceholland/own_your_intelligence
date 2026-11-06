@@ -9,6 +9,7 @@ import time
 import zipfile
 
 from .gpu_jobs import ACTIVE, GpuJobRepository
+from .colab_notebook import render_notebook
 from .gpu_result import validate_result
 from .gpu_worker import FAILED, UNKNOWN, provider_environment
 from .store import Problem
@@ -29,6 +30,40 @@ class GpuJobManager:
     def folder(self, run):
         # UUIDs originate in Store, never from a client-supplied path.
         return self.root / 'runs' / run['id']
+
+    def colab_notebook(self, ws, job, run_id):
+        run = self.repo.get_colab(ws, job, run_id)
+        return render_notebook(run['payload'], run['source_files']['training_core.py'])
+
+    def import_colab(self, ws, job, run_id, data):
+        run = self.repo.get_colab(ws, job, run_id)
+        if run['status'] != 'awaiting_result':
+            raise Problem('This Colab result is already saved. Prepare a new notebook to train again.', 409)
+        try:
+            manifest, _ = validate_result(data, run['payload'])
+        except Problem as error:
+            raise Problem('This ZIP did not match the prepared notebook or is incomplete. Choose the result ZIP from this Colab run.', 422) from error
+
+        with self.repo.lock:
+            if self.repo.get_colab(ws, job, run_id)['status'] != 'awaiting_result':
+                raise Problem('This Colab result is already saved. Prepare a new notebook to train again.', 409)
+            folder = self.folder(run)
+            temporary = folder / 'result.tmp'
+            try:
+                folder.mkdir(parents=True, exist_ok=True)
+                temporary.write_bytes(data)
+                temporary.replace(folder / 'result.zip')
+            except OSError as error:
+                raise Problem('The result could not be saved on this laptop. Check your disk space and import the ZIP again.', 503) from error
+            return self.repo.summary(self._complete(run, manifest))
+
+    def _complete(self, run, manifest, **changes):
+        expected = {check['id']: check['output'] for check in run['checks']}
+        rows = [dict(row, expected=expected[row['check_id']]) for row in manifest['results']]
+        return self.repo.update(run['workspace_id'], run['job_id'], run['id'], **changes,
+            status='complete', phase='Ready for your review', error=None, download_available=True,
+            training_performed=True, results=rows, artifacts=manifest['artifacts'], step=manifest['steps'],
+            changed_parameters=manifest['changed_parameters'], first_loss=manifest['first_loss'], last_loss=manifest['last_loss'])
 
     def _launch(self, run, mode='train'):
         credentials = self.setup.vault.load()
@@ -134,8 +169,6 @@ class GpuJobManager:
             return self.repo.update(ws, job, run_id, **common, status='failed', phase='GPU job did not finish', error=FAILED)
         try:
             manifest, files = validate_result((self.folder(run) / 'result.zip').read_bytes(), saved['payload'])
-            expected = {check['id']: check['output'] for check in saved['checks']}
-            rows = [dict(row, expected=expected[row['check_id']]) for row in manifest['results']]
             adapter = self.folder(run) / 'adapter'
             adapter.mkdir(exist_ok=True)
             for name, data in files.items():
@@ -144,10 +177,8 @@ class GpuJobManager:
         except (Problem, OSError, KeyError):
             return self.repo.update(ws, job, run_id, **common, status='failed', phase='GPU result could not be verified',
                 error='The returned model did not pass the file and training checks. No model was imported. Keep the cloud run details for diagnosis.')
-        common.update(download_available=True)
-        return self.repo.update(ws, job, run_id, **common, status='complete', phase='Ready for your review', error=None,
-            training_performed=True, results=rows, artifacts=manifest['artifacts'], step=manifest['steps'],
-            changed_parameters=manifest['changed_parameters'], first_loss=manifest['first_loss'], last_loss=manifest['last_loss'])
+        return self._complete(saved, manifest, provider_stop_confirmed=acknowledged,
+                              **{key: common[key] for key in ('app_id', 'call_id') if key in common})
 
     def cancel(self, ws, job, run_id):
         with self.lock:

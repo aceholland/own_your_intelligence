@@ -59,3 +59,9 @@ Authority: `docs/superpowers/specs/2026-11-02-gpu-training-design.md` and the fo
 - Completion requires bounded archive validation, frozen request/base/config/check matching, real completed steps and finite safetensors. Expected answers join locally. Human Looks right/Needs work decisions never silently activate a GPU model. Candidate errors cannot be accepted.
 - Download GPU model uses the shared confirmation owner and explains its private data, actual adapter, separately downloaded base and CUDA requirement. Frozen trusted runner code comes from the original local package, never from a remote archive. Later modal/route input survives old asynchronous responses.
 - No in-app GPU serving, automatic production approval, fabricated quality scores or claim of verified L4 execution until the first real test succeeds.
+
+## Free Colab training
+
+Train it reuses the shared dialog, form, error, download, comparison, and review owners. Preparing a notebook records permission to share the job instructions, teaching examples, and check questions with Google Colab. Expected answers and source documents stay local.
+
+Each prepared run freezes its payload and trusted trainer. A pending run survives reload and draft edits. Import accepts a bounded result ZIP only when it matches that frozen request and passes the shared GPU result verifier. Failed imports retain the selected file and allow retry. Completed results preserve local expected answers and human reviews, and remain available for export. Larger-model serving is a separate milestone.

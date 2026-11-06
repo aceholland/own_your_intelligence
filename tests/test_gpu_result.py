@@ -12,7 +12,7 @@ from own.training_data import digest
 from own.gpu_result import validate_result
 
 
-def fixture(manifest_changes=None,extra=None,tensor_value=.125,payload=None,minimal=False):
+def fixture(manifest_changes=None,extra=None,tensor_value=.125,payload=None,minimal=False,artifacts=None):
     payload=payload or {'base':GPU_BASE,'config':GPU_CONFIG,'dataset_hash':'frozen-dataset','job':{'goal':'Reply','instructions':'Be concise'},
              'training_rows':[{'messages':[]} for _ in range(3)],'checks':[{'id':'check1','input':'New request'}]}
     config={'peft_type':'LORA','task_type':'CAUSAL_LM','base_model_name_or_path':GPU_BASE['id'],'revision':GPU_BASE['revision'],
@@ -27,6 +27,8 @@ def fixture(manifest_changes=None,extra=None,tensor_value=.125,payload=None,mini
     encoded+=b' '*((-len(encoded))%8)
     weights=struct.pack('<Q',len(encoded))+encoded+struct.pack('<f',tensor_value)*(offset//4)
     files={'adapter_model.safetensors':weights,'adapter_config.json':json.dumps(config).encode()}
+    if artifacts:
+        files.update(artifacts)
     manifest={'format':'own-gpu-result-v1','training_performed':True,'base_weights_included':False,'base':GPU_BASE,'config':GPU_CONFIG,
         'job':payload['job'],'dataset_hash':payload['dataset_hash'],'request_hash':digest(payload),'steps':len(payload['training_rows'])*GPU_CONFIG['epochs'],'changed_parameters':16,
         'first_loss':2.,'last_loss':1.,'artifacts':{n:hashlib.sha256(v).hexdigest() for n,v in files.items()},
@@ -42,6 +44,15 @@ def fixture(manifest_changes=None,extra=None,tensor_value=.125,payload=None,mini
 
 
 class GpuResultTests(unittest.TestCase):
+    def test_added_tokens_file_is_retained_when_its_hash_matches(self):
+        added_tokens = b'{"<|im_start|>": 151644}'
+        data, payload = fixture(artifacts={'added_tokens.json': added_tokens})
+
+        manifest, files = validate_result(data, payload)
+
+        self.assertEqual(files['added_tokens.json'], added_tokens)
+        self.assertEqual(manifest['artifacts']['added_tokens.json'], hashlib.sha256(added_tokens).hexdigest())
+
     def test_real_weight_format_and_exact_snapshot_are_required(self):
         data,payload=fixture()
         manifest,files=validate_result(data,payload)

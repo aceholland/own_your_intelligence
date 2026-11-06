@@ -1,4 +1,17 @@
-# Step 4 GPU workflow verification — 2 November 2026
+# Current prototype verification — 6 November 2026
+
+- The source includes the ivory/olive Acewyn AI redesign, real CPU model training, and the Colab preparation/import/comparison flow.
+- The current Python suite has 99 tests. JavaScript syntax checks cover app.js, training.js, and gpu.js.
+- The Colab browser regression exercises notebook consent/download, retained invalid-ZIP input, retry, verified synthetic adapter import, expected-answer comparison, saved review, and export. It uses an isolated local app and makes no cloud calls.
+- Real free-T4 runs on November 3 trained Qwen3-4B adapters on fictional shop data. The first used 6 lessons and 18 steps, and the second used 12 lessons and 36 steps. Both changed 2,949,120 adapter parameters and were verified and imported.
+- On the same two separate checks, retraining changed the delivery answer from “Delivery takes 3-5 working days.” to “Standard delivery takes five working days.” The second run answered the receipt check with “A receipt is required for returns.” Human reviews are still pending. These reused questions provide limited quality evidence.
+- A real import exposed the standard Qwen tokenizer file added_tokens.json. The verifier now permits that exact file while preserving archive, hash, request, topology, and finite-weight checks. A regression test covers it.
+- The redesigned overview and Train it screens were checked on desktop and at 360/390 px, including image loading, workspace navigation, keyboard dialog opening/closing, focus return, and the saved real Colab comparison.
+- Colab results currently support comparison/export. Larger-adapter inference inside Try it, the first actual Modal L4 run, production authentication/encryption, and broad task-quality evaluation remain future work.
+
+The following sections preserve earlier milestone evidence and limits as they were recorded.
+
+## Historical Step 4 GPU workflow verification — 2 November 2026
 
 The supervised workflow is implemented; the **first actual L4/Qwen3-4B run is still pending**. The founder requires free credits only, no out-of-pocket charges. No cloud image, GPU invocation or business-data upload was started. Remaining credits and the provider's net $0 Spend limit have not been confirmed.
 
